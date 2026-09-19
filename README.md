@@ -2,7 +2,7 @@
 
 一个本地运行、只读、可审计的 ChatGPT 订阅查询工具。把自己的 Session JSON、Access Token、Codex `auth.json` 内容或 session token 粘贴到程序中，即可在本机整理当前套餐、邮箱、计费币种、订阅周期、剩余时间、续费状态、网页账单和 Codex 额度。
 
-> 当前版本：**v1.0.0**。本项目与 OpenAI、Apple、Google 没有关联，也不是官方产品。
+> 当前版本：**v1.0.1**。本项目与 OpenAI、Apple、Google 没有关联，也不是官方产品。
 
 ## 为什么做成桌面程序
 
@@ -27,7 +27,7 @@ Apple 和 Google 管理各自商店中的完整购买历史。订阅镜只能展
 
 ## 下载和运行
 
-1. 从 [Releases](https://github.com/PascalePaF/chatgpt-subscription-lens/releases) 下载 `SubscriptionLens-v1.0.0-windows-x64-portable.zip`。
+1. 从 [Releases](https://github.com/PascalePaF/chatgpt-subscription-lens/releases/latest) 下载 `SubscriptionLens-v1.0.1-windows-x64-portable.zip`。
 2. 把压缩包完整解压到一个可写目录；不要直接在压缩包内运行。
 3. 双击 `SubscriptionLens.exe`。
 4. 首次运行会在同目录创建 `subscription-lens-data/WebView2`。删除整个解压目录即可完整移除程序。

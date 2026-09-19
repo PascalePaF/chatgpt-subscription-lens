@@ -1,7 +1,7 @@
 {
   "name": "chatgpt-subscription-lens",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Local, read-only ChatGPT subscription inspector",
   "license": "MIT",
   "repository": "github:PascalePaF/chatgpt-subscription-lens",

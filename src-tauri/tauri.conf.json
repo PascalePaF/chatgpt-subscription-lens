@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "订阅镜",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "io.github.pascalepaf.chatgpt-subscription-lens",
   "build": {
     "beforeDevCommand": "npm run dev",

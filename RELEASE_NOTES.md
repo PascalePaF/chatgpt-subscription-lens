@@ -1,6 +1,6 @@
-# 订阅镜 v1.0.0
+# 订阅镜 v1.0.1
 
-首个稳定版本。
+V1 稳定版的小型正确性修复；包含 v1.0.0 的全部功能。
 
 ## 亮点
 
@@ -15,4 +15,8 @@
 
 OpenAI 没有公开个人 ChatGPT 完整订阅历史 API。Apple/Google 的完整历史必须在对应商店查询；本工具只显示 ChatGPT 账户端点最近可确认的移动订阅。内部端点可能随 ChatGPT 更新而变化。
 
-下载 `SubscriptionLens-v1.0.0-windows-x64-portable.zip`，完整解压后运行 `SubscriptionLens.exe`。校验值见 `SHA256SUMS.txt`。
+## 修复
+
+- 修正浏览器时区偏移量的符号，确保账户检查端点收到与 JavaScript 标准一致的分钟数。
+
+下载 `SubscriptionLens-v1.0.1-windows-x64-portable.zip`，完整解压后运行 `SubscriptionLens.exe`。校验值见 `SHA256SUMS.txt`。

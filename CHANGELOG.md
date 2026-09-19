@@ -2,6 +2,12 @@
 
 所有重要变化记录在此。版本遵循 Semantic Versioning。
 
+## [1.0.1] - 2026-09-19
+
+### Fixed
+
+- 按 JavaScript `Date.getTimezoneOffset()` 的标准符号向账户端点传递时区偏移，避免正负号颠倒。
+
 ## [1.0.0] - 2026-09-19
 
 ### Added

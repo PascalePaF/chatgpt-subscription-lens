@@ -108,7 +108,7 @@ const app: HTMLDivElement = appElement;
 
 let appInfo: AppInfo = {
   name: "订阅镜",
-  version: "1.0.0",
+  version: "1.0.1",
   localOnly: true,
   readOnly: true,
   allowedHosts: ["chatgpt.com"],
@@ -183,7 +183,7 @@ function landingMarkup(): string {
         </section>
       </main>
 
-      <footer class="footer"><span>订阅镜 v<span data-version>1.0.0</span></span><span>MIT 开源 · 无遥测 · 本地处理</span></footer>
+      <footer class="footer"><span>订阅镜 v<span data-version>1.0.1</span></span><span>MIT 开源 · 无遥测 · 本地处理</span></footer>
     </div>`;
 }
 
@@ -284,7 +284,7 @@ async function runInspection(): Promise<void> {
     const result = await invoke<InspectionResult>("inspect_subscription", {
       request: {
         credential: value,
-        timezoneOffsetMin: -new Date().getTimezoneOffset(),
+        timezoneOffsetMin: new Date().getTimezoneOffset(),
       },
     });
     clearCredential();
