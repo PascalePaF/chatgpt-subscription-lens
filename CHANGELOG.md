@@ -2,6 +2,20 @@
 
 所有重要变化记录在此。版本遵循 Semantic Versioning。
 
+## [1.1.0] - 2026-09-19
+
+### Added
+
+- 查询前的凭据结构、身份、账户范围和有效期检查；Rust 后端强制执行完整性门槛。
+- 只读支付方式数据源及 Visa、Mastercard、Apple App Store、Google Play 本地标识。
+- 银行卡显示最多保留前 6 位和尾号 4 位；未返回的字段不会猜测。
+- Windows x64 NSIS 安装程序、开始菜单入口和标准卸载流程。
+
+### Changed
+
+- 从零重做为暖米色、陶土色点缀与衬线标题组成的编辑式桌面界面。
+- GitHub Release 仅发布 Setup EXE，不再生成绿色免安装包。
+
 ## [1.0.1] - 2026-09-19
 
 ### Fixed

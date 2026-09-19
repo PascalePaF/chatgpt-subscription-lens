@@ -5,8 +5,8 @@ use serde_json::Value;
 
 use crate::error::AppError;
 use crate::models::{
-    AccountIdentity, BillingRecord, CoverageInfo, InspectionResult, ResolvedCredential,
-    SourceStatus, SubscriptionSummary, UsageSummary, UsageWindow,
+    AccountIdentity, BillingRecord, CoverageInfo, InspectionResult, PaymentMethodSummary,
+    ResolvedCredential, SourceStatus, SubscriptionSummary, UsageSummary, UsageWindow,
 };
 use crate::upstream::{FetchOutcome, RawSources};
 
@@ -23,10 +23,17 @@ pub fn build_result(
     credential: ResolvedCredential,
     raw: RawSources,
 ) -> Result<InspectionResult, AppError> {
-    if !raw.account_check.success() && !raw.portal.success() && !raw.usage.success() {
+    if !raw.account_check.success()
+        && !raw.portal.success()
+        && !raw.invoices.success()
+        && !raw.payment_methods.success()
+        && !raw.usage.success()
+    {
         let reasons = [
             raw.account_check.error.as_deref(),
             raw.portal.error.as_deref(),
+            raw.invoices.error.as_deref(),
+            raw.payment_methods.error.as_deref(),
             raw.usage.error.as_deref(),
         ]
         .into_iter()
@@ -51,6 +58,12 @@ pub fn build_result(
         .map(normalize_invoices)
         .unwrap_or_default();
     invoices.sort_by(compare_records_desc);
+    let payment_methods = raw
+        .payment_methods
+        .value
+        .as_ref()
+        .map(normalize_payment_methods)
+        .unwrap_or_default();
 
     let identity = AccountIdentity {
         name: credential.name.clone(),
@@ -104,6 +117,7 @@ pub fn build_result(
     append_source_warning(&mut warnings, "账户订阅", &raw.account_check);
     append_source_warning(&mut warnings, "订阅周期", &raw.portal);
     append_source_warning(&mut warnings, "网页账单", &raw.invoices);
+    append_source_warning(&mut warnings, "支付方式", &raw.payment_methods);
     append_source_warning(&mut warnings, "Codex 额度", &raw.usage);
     if subscription
         .purchase_origin
@@ -139,6 +153,12 @@ pub fn build_result(
             &raw.invoices,
             "chatgpt.com 直购账单历史",
         ),
+        source_status(
+            "payment-methods",
+            "支付方式",
+            &raw.payment_methods,
+            "银行卡品牌与脱敏卡号",
+        ),
         source_status("usage", "Codex 额度", &raw.usage, "滚动额度窗口与恢复时间"),
     ];
 
@@ -149,10 +169,153 @@ pub fn build_result(
         usage,
         invoices,
         mobile_records,
+        payment_methods,
         sources,
         warnings,
         coverage: CoverageInfo::default(),
     })
+}
+
+fn normalize_payment_methods(payload: &Value) -> Vec<PaymentMethodSummary> {
+    let default_id = first_owned([
+        string_at(payload, &["default_payment_method_id"]),
+        string_at(payload, &["default_payment_method"]),
+        string_at(payload, &["defaultPaymentMethodId"]),
+    ]);
+    let items: Vec<&Value> = if let Some(array) = payload.as_array() {
+        array.iter().collect()
+    } else if let Some(array) = ["payment_methods", "data", "items", "cards"]
+        .into_iter()
+        .find_map(|key| payload.get(key).and_then(Value::as_array))
+    {
+        array.iter().collect()
+    } else if let Some(array) = payload
+        .get("payment_methods")
+        .and_then(|value| value.get("data"))
+        .and_then(Value::as_array)
+    {
+        array.iter().collect()
+    } else {
+        payload
+            .get("payment_method")
+            .filter(|value| value.is_object())
+            .into_iter()
+            .collect()
+    };
+
+    let mut methods = items
+        .into_iter()
+        .filter_map(|item| {
+            let card = item.get("card").unwrap_or(item);
+            let kind = first_owned([string_at(item, &["type"]), string_at(card, &["type"])])
+                .unwrap_or_else(|| "card".into());
+            if !kind.to_ascii_lowercase().contains("card") && item.get("card").is_none() {
+                return None;
+            }
+            let brand = first_owned([
+                string_at(card, &["brand"]),
+                string_at(card, &["network"]),
+                string_at(card, &["display_brand"]),
+                string_at(item, &["brand"]),
+            ])
+            .map(|value| normalize_card_brand(&value))
+            .unwrap_or_else(|| "card".into());
+            let first6 = ["iin", "bin", "first6", "first_6", "card_bin"]
+                .into_iter()
+                .find_map(|key| digit_prefix_at(card, &[key], 6))
+                .or_else(|| {
+                    ["iin", "bin", "first6", "first_6", "card_bin"]
+                        .into_iter()
+                        .find_map(|key| digit_prefix_at(item, &[key], 6))
+                });
+            let last4 = ["last4", "last_4", "display_last4", "card_last4"]
+                .into_iter()
+                .find_map(|key| digit_suffix_at(card, &[key], 4))
+                .or_else(|| {
+                    ["last4", "last_4", "display_last4", "card_last4"]
+                        .into_iter()
+                        .find_map(|key| digit_suffix_at(item, &[key], 4))
+                });
+            if brand == "card" && first6.is_none() && last4.is_none() {
+                return None;
+            }
+            let item_id = string_at(item, &["id"]);
+            let is_default = bool_at(item, &["is_default"])
+                .or_else(|| bool_at(item, &["default"]))
+                .unwrap_or_else(|| {
+                    item_id
+                        .zip(default_id.as_deref())
+                        .is_some_and(|(left, right)| left == right)
+                });
+            Some(PaymentMethodSummary {
+                kind: "card".into(),
+                brand,
+                first6,
+                last4,
+                exp_month: i64_at(card, &["exp_month"])
+                    .filter(|value| (1..=12).contains(value))
+                    .map(|value| value as u32),
+                exp_year: i64_at(card, &["exp_year"])
+                    .filter(|value| (2000..=9999).contains(value))
+                    .map(|value| value as u32),
+                is_default,
+                source_note: "ChatGPT 支付方式端点；仅保留品牌、前 6 位和尾号 4 位".into(),
+            })
+        })
+        .collect::<Vec<_>>();
+    methods.sort_by_key(|method| !method.is_default);
+    methods
+}
+
+fn normalize_card_brand(value: &str) -> String {
+    let normalized = value
+        .trim()
+        .to_ascii_lowercase()
+        .replace([' ', '_', '-'], "");
+    match normalized.as_str() {
+        "visa" => "visa".into(),
+        "mastercard" | "master" | "mc" => "mastercard".into(),
+        "amex" | "americanexpress" => "amex".into(),
+        "unionpay" => "unionpay".into(),
+        "jcb" => "jcb".into(),
+        "discover" => "discover".into(),
+        _ => "card".into(),
+    }
+}
+
+fn digit_prefix_at(value: &Value, path: &[&str], length: usize) -> Option<String> {
+    let text = scalar_text_at(value, path)?;
+    let digits = text
+        .chars()
+        .filter(char::is_ascii_digit)
+        .collect::<String>();
+    (digits.len() >= length).then(|| digits.chars().take(length).collect())
+}
+
+fn digit_suffix_at(value: &Value, path: &[&str], length: usize) -> Option<String> {
+    let text = scalar_text_at(value, path)?;
+    let digits = text
+        .chars()
+        .filter(char::is_ascii_digit)
+        .collect::<String>();
+    (digits.len() >= length).then(|| {
+        digits
+            .chars()
+            .rev()
+            .take(length)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect()
+    })
+}
+
+fn scalar_text_at(value: &Value, path: &[&str]) -> Option<String> {
+    let value = value_at(value, path)?;
+    value
+        .as_str()
+        .map(ToOwned::to_owned)
+        .or_else(|| value.as_u64().map(|number| number.to_string()))
 }
 
 fn select_account_entry<'a>(
@@ -709,5 +872,32 @@ mod tests {
         let normalized = normalize_window(&window, "fallback", None).expect("window");
         assert_eq!(normalized.label, "每周窗口");
         assert_eq!(normalized.remaining_percent, 86.5);
+    }
+
+    #[test]
+    fn normalizes_and_masks_payment_methods() {
+        let payload = json!({
+            "default_payment_method_id": "pm_master",
+            "payment_methods": [
+                {
+                    "id": "pm_visa",
+                    "type": "card",
+                    "card": {"brand": "Visa", "last4": "4242", "exp_month": 12, "exp_year": 2030}
+                },
+                {
+                    "id": "pm_master",
+                    "type": "card",
+                    "card": {"brand": "MasterCard", "iin": "55555599", "last4": "4444"}
+                }
+            ]
+        });
+        let methods = normalize_payment_methods(&payload);
+        assert_eq!(methods.len(), 2);
+        assert!(methods[0].is_default);
+        assert_eq!(methods[0].brand, "mastercard");
+        assert_eq!(methods[0].first6.as_deref(), Some("555555"));
+        assert_eq!(methods[0].last4.as_deref(), Some("4444"));
+        assert_eq!(methods[1].brand, "visa");
+        assert_eq!(methods[1].first6, None);
     }
 }

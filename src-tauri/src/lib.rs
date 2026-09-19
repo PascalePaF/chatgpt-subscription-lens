@@ -4,7 +4,7 @@ mod models;
 mod normalize;
 mod upstream;
 
-use models::{AppInfo, InspectionRequest, InspectionResult};
+use models::{AppInfo, CredentialValidation, InspectionRequest, InspectionResult};
 use zeroize::Zeroizing;
 
 #[tauri::command]
@@ -19,11 +19,23 @@ fn app_info() -> AppInfo {
 }
 
 #[tauri::command]
+fn validate_credential(credential: String) -> CredentialValidation {
+    let protected_input = Zeroizing::new(credential);
+    credential::validate_credential_input(protected_input.as_str())
+}
+
+#[tauri::command]
 async fn inspect_subscription(
     request: InspectionRequest,
 ) -> Result<InspectionResult, error::AppError> {
-    let client = upstream::build_client()?;
     let protected_input = Zeroizing::new(request.credential);
+    let validation = credential::validate_credential_input(protected_input.as_str());
+    if !validation.can_query {
+        return Err(error::AppError::IncompleteCredential(
+            validation.missing.join("、"),
+        ));
+    }
+    let client = upstream::build_client()?;
     let credential = credential::resolve_credential(&client, protected_input.as_str()).await?;
     let timezone_offset = request.timezone_offset_min.unwrap_or(0).clamp(-840, 840);
     let raw = upstream::fetch_all(
@@ -39,7 +51,11 @@ async fn inspect_subscription(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![app_info, inspect_subscription])
+        .invoke_handler(tauri::generate_handler![
+            app_info,
+            validate_credential,
+            inspect_subscription
+        ])
         .setup(|app| {
             let executable = std::env::current_exe()?;
             let install_directory = executable

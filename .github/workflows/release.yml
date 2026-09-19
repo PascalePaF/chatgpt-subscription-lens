@@ -1,4 +1,4 @@
-name: Release portable Windows build
+name: Release Windows installer
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       tag:
         description: Existing version tag to publish
         required: true
-        default: v1.0.0
+        default: v1.1.0
 
 permissions:
   contents: write
@@ -50,31 +50,26 @@ jobs:
       - name: Test before packaging
         run: npm run check
 
-      - name: Build portable executable
-        run: npm run tauri build
+      - name: Build Windows NSIS installer
+        run: npm run tauri build -- --bundles nsis
 
       - name: Create release archives and checksums
         id: package
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          $stage = Join-Path $PWD "release-staging"
-          $artifact = Join-Path $PWD "SubscriptionLens-v$version-windows-x64-portable.zip"
-          New-Item -ItemType Directory -Path $stage -Force | Out-Null
-          Copy-Item -LiteralPath "src-tauri\target\release\chatgpt-subscription-lens.exe" -Destination (Join-Path $stage "SubscriptionLens.exe")
-          Copy-Item -LiteralPath "README.md", "PRIVACY.md", "SECURITY.md", "LICENSE", "CHANGELOG.md" -Destination $stage
-          Copy-Item -LiteralPath "docs" -Destination $stage -Recurse
-          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $artifact -CompressionLevel Optimal
-          $standalone = Join-Path $PWD "SubscriptionLens-v$version-windows-x64.exe"
-          Copy-Item -LiteralPath "src-tauri\target\release\chatgpt-subscription-lens.exe" -Destination $standalone
-          $files = @($artifact, $standalone)
+          $bundleDir = Join-Path $PWD "src-tauri\target\release\bundle\nsis"
+          $source = Get-ChildItem -LiteralPath $bundleDir -Filter "*-setup.exe" -File | Select-Object -First 1
+          if (-not $source) { throw "NSIS installer was not produced" }
+          $installer = Join-Path $PWD "SubscriptionLens-v$version-windows-x64-setup.exe"
+          Copy-Item -LiteralPath $source.FullName -Destination $installer
+          $files = @($installer)
           $lines = foreach ($file in $files) {
             $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash  $([IO.Path]::GetFileName($file))"
           }
           $lines | Set-Content -LiteralPath "SHA256SUMS.txt" -Encoding utf8NoBOM
-          "zip=$artifact" >> $env:GITHUB_OUTPUT
-          "exe=$standalone" >> $env:GITHUB_OUTPUT
+          "installer=$installer" >> $env:GITHUB_OUTPUT
 
       - name: Publish GitHub Release
         shell: pwsh
@@ -84,4 +79,4 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             gh release create $tag --title "订阅镜 $tag" --notes-file RELEASE_NOTES.md
           }
-          gh release upload $tag "${{ steps.package.outputs.zip }}" "${{ steps.package.outputs.exe }}" "SHA256SUMS.txt" --clobber
+          gh release upload $tag "${{ steps.package.outputs.installer }}" "SHA256SUMS.txt" --clobber

@@ -8,6 +8,8 @@ pub enum AppError {
     CredentialTooLarge,
     #[error("凭证格式无法识别。建议复制 https://chatgpt.com/api/auth/session 页面中的完整 JSON。")]
     UnsupportedCredential,
+    #[error("凭证不完整，不能开始查询：{0}")]
+    IncompleteCredential(String),
     #[error("Session cookie 含有不安全字符，已拒绝发送。")]
     UnsafeSessionToken,
     #[error("无法从 Session cookie 获取 Access Token：{0}")]

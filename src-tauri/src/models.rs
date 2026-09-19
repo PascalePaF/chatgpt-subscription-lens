@@ -40,9 +40,31 @@ pub struct InspectionResult {
     pub usage: UsageSummary,
     pub invoices: Vec<BillingRecord>,
     pub mobile_records: Vec<BillingRecord>,
+    pub payment_methods: Vec<PaymentMethodSummary>,
     pub sources: Vec<SourceStatus>,
     pub warnings: Vec<String>,
     pub coverage: CoverageInfo,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialValidation {
+    pub kind: String,
+    pub valid: bool,
+    pub complete: bool,
+    pub can_query: bool,
+    pub summary: String,
+    pub checks: Vec<CredentialCheck>,
+    pub missing: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CredentialCheck {
+    pub id: String,
+    pub label: String,
+    pub status: String,
+    pub detail: String,
 }
 
 #[derive(Debug, Serialize, Default)]
@@ -121,6 +143,19 @@ pub struct BillingRecord {
     pub will_renew: Option<bool>,
     pub refunded_at: Option<String>,
     pub source_note: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PaymentMethodSummary {
+    pub kind: String,
+    pub brand: String,
+    pub first6: Option<String>,
+    pub last4: Option<String>,
+    pub exp_month: Option<u32>,
+    pub exp_year: Option<u32>,
+    pub is_default: bool,
+    pub source_note: String,
 }
 
 #[derive(Debug, Serialize)]

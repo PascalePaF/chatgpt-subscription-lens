@@ -13,9 +13,10 @@ use crate::normalize::resolve_account_id_from_check;
 const ACCOUNT_CHECK_URL: &str = "https://chatgpt.com/backend-api/accounts/check/v4-2023-04-27";
 const SUBSCRIPTIONS_URL: &str = "https://chatgpt.com/backend-api/subscriptions";
 const INVOICES_URL: &str = "https://chatgpt.com/backend-api/invoices";
+const PAYMENT_METHODS_URL: &str = "https://chatgpt.com/backend-api/payments/payment_methods";
 const USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
 const BROWSER_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
-const CODEX_UA: &str = "codex_cli_rs/1.0.0 (Windows 10.0.0; x86_64) subscription-lens/1.0.0";
+const CODEX_UA: &str = "codex_cli_rs/1.0.0 (Windows 10.0.0; x86_64) subscription-lens/1.1.0";
 const MAX_RESPONSE_BYTES: usize = 5 * 1024 * 1024;
 
 #[derive(Debug, Default)]
@@ -23,6 +24,7 @@ pub struct RawSources {
     pub account_check: FetchOutcome,
     pub portal: FetchOutcome,
     pub invoices: FetchOutcome,
+    pub payment_methods: FetchOutcome,
     pub usage: FetchOutcome,
     pub resolved_account_id: Option<String>,
 }
@@ -90,45 +92,59 @@ pub async fn fetch_all(
         RequestProfile::Codex,
     );
 
-    let (portal, invoices, usage) = if let Some(account_id) = resolved_account_id.as_deref() {
-        let portal_url = scoped_url(SUBSCRIPTIONS_URL, account_id);
-        let invoices_url = scoped_url(INVOICES_URL, account_id);
-        tokio::join!(
-            fetch_json(
-                client,
-                portal_url,
-                access_token,
-                Some(account_id),
-                RequestProfile::Browser,
-            ),
-            fetch_json(
-                client,
-                invoices_url,
-                access_token,
-                Some(account_id),
-                RequestProfile::Browser,
-            ),
-            usage_future,
-        )
-    } else {
-        let usage = usage_future.await;
-        (
-            FetchOutcome {
-                error: Some("Access Token 中没有 account_id，账户检查也未返回可用账号".into()),
-                ..Default::default()
-            },
-            FetchOutcome {
-                error: Some("缺少 account_id，无法查询网页账单".into()),
-                ..Default::default()
-            },
-            usage,
-        )
-    };
+    let (portal, invoices, payment_methods, usage) =
+        if let Some(account_id) = resolved_account_id.as_deref() {
+            let portal_url = scoped_url(SUBSCRIPTIONS_URL, account_id);
+            let invoices_url = scoped_url(INVOICES_URL, account_id);
+            let payment_methods_url = scoped_url(PAYMENT_METHODS_URL, account_id);
+            tokio::join!(
+                fetch_json(
+                    client,
+                    portal_url,
+                    access_token,
+                    Some(account_id),
+                    RequestProfile::Browser,
+                ),
+                fetch_json(
+                    client,
+                    invoices_url,
+                    access_token,
+                    Some(account_id),
+                    RequestProfile::Browser,
+                ),
+                fetch_json(
+                    client,
+                    payment_methods_url,
+                    access_token,
+                    Some(account_id),
+                    RequestProfile::Browser,
+                ),
+                usage_future,
+            )
+        } else {
+            let usage = usage_future.await;
+            (
+                FetchOutcome {
+                    error: Some("Access Token 中没有 account_id，账户检查也未返回可用账号".into()),
+                    ..Default::default()
+                },
+                FetchOutcome {
+                    error: Some("缺少 account_id，无法查询网页账单".into()),
+                    ..Default::default()
+                },
+                FetchOutcome {
+                    error: Some("缺少 account_id，无法查询支付方式".into()),
+                    ..Default::default()
+                },
+                usage,
+            )
+        };
 
     RawSources {
         account_check,
         portal,
         invoices,
+        payment_methods,
         usage,
         resolved_account_id,
     }
