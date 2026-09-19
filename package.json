@@ -1,0 +1,29 @@
+{
+  "name": "chatgpt-subscription-lens",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local, read-only ChatGPT subscription inspector",
+  "license": "MIT",
+  "repository": "github:PascalePaF/chatgpt-subscription-lens",
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
+    "check": "npm run build && cargo test --manifest-path src-tauri/Cargo.toml",
+    "format:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "lint": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.5",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.8.0"
+  }
+}
