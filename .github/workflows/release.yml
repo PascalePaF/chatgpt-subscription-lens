@@ -1,0 +1,87 @@
+name: Release portable Windows build
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+        default: v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Resolve tag
+        id: version
+        shell: pwsh
+        run: |
+          $tag = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.tag }}" } else { "${{ github.ref_name }}" }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$($tag.TrimStart('v'))" >> $env:GITHUB_OUTPUT
+
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.version.outputs.tag }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Test before packaging
+        run: npm run check
+
+      - name: Build portable executable
+        run: npm run tauri build
+
+      - name: Create release archives and checksums
+        id: package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $stage = Join-Path $PWD "release-staging"
+          $artifact = Join-Path $PWD "SubscriptionLens-v$version-windows-x64-portable.zip"
+          New-Item -ItemType Directory -Path $stage -Force | Out-Null
+          Copy-Item -LiteralPath "src-tauri\target\release\chatgpt-subscription-lens.exe" -Destination (Join-Path $stage "SubscriptionLens.exe")
+          Copy-Item -LiteralPath "README.md", "PRIVACY.md", "SECURITY.md", "LICENSE", "CHANGELOG.md" -Destination $stage
+          Copy-Item -LiteralPath "docs" -Destination $stage -Recurse
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $artifact -CompressionLevel Optimal
+          $standalone = Join-Path $PWD "SubscriptionLens-v$version-windows-x64.exe"
+          Copy-Item -LiteralPath "src-tauri\target\release\chatgpt-subscription-lens.exe" -Destination $standalone
+          $files = @($artifact, $standalone)
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $([IO.Path]::GetFileName($file))"
+          }
+          $lines | Set-Content -LiteralPath "SHA256SUMS.txt" -Encoding utf8NoBOM
+          "zip=$artifact" >> $env:GITHUB_OUTPUT
+          "exe=$standalone" >> $env:GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          gh release view $tag 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title "订阅镜 $tag" --notes-file RELEASE_NOTES.md
+          }
+          gh release upload $tag "${{ steps.package.outputs.zip }}" "${{ steps.package.outputs.exe }}" "SHA256SUMS.txt" --clobber

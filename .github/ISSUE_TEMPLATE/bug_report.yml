@@ -1,0 +1,43 @@
+name: Bug report
+description: 报告可复现问题（不要提交真实凭证）
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先删除所有 Session、Token、Cookie、邮箱、账号 ID 和账单信息。安全漏洞请使用私密安全报告。
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: 出问题的数据源
+      options:
+        - 启动/界面
+        - 凭证解析
+        - 账户与权益
+        - 订阅周期
+        - 网页账单
+        - Codex 额度
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 脱敏复现步骤
+      description: 不要粘贴任何真实凭证或个人信息。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期与实际结果
+    validations:
+      required: true
