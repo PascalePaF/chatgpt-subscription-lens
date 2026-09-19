@@ -2,7 +2,7 @@
 
 一个真正原生、本地运行、只读、可审计的 Windows ChatGPT 订阅查询工具。把自己的 Session JSON、Access Token、Codex `auth.json` 内容或 session token 粘贴到程序中，即可在本机整理当前套餐、邮箱、订阅周期、剩余时间、支付方式、账单记录和可验证的额度信息。
 
-> 当前版本：**v1.1.1**。本项目与 OpenAI、Apple、Google、Visa、Mastercard 没有关联，也不是官方产品。
+> 当前版本：**v1.1.2**。本项目与 OpenAI、Apple、Google、Visa、Mastercard 没有关联，也不是官方产品。
 
 ## 原生界面预览
 
@@ -12,11 +12,12 @@
 
 ![原生订阅卡片正反面](docs/screenshots/v1.1.1-native-result.png)
 
-## V1.1.1 的桌面形态
+## V1.1.2 的桌面形态
 
 - 纯 Rust + eframe/egui 原生窗口，不加载 HTML、CSS、JavaScript 或 WebView2。
 - 固定 1280 × 800 单屏布局，没有页面级纵向滚动。
-- 查询页只有三行高的 Session 输入区；查询成功或闲置 5 分钟后自动清除。
+- 查询页使用不可被长文本撑开的三行 Session 输入视口；超出内容只在框内滚动，查询按钮始终可见。
+- 查询成功或闲置 5 分钟后，Session 会自动从内存清除。
 - 查询结果采用同屏“卡片正面 + 卡片背面”：正面展示套餐、剩余时间、到期时间和支付方式；背面展示账户、五类额度槽位和最近账单。
 - 套餐配色固定：Pro 20X 黑金、Pro 5X 蓝色、Plus 绿色、Free 灰色。
 - Visa、Mastercard、Apple App Store、Google Play 使用随程序内嵌的本地 3D 图标，不联网加载图片。
@@ -40,7 +41,7 @@ Apple 和 Google 管理各自商店中的完整购买历史。订阅镜只能展
 
 ## 下载、安装与卸载
 
-1. 从 [Releases](https://github.com/PascalePaF/chatgpt-subscription-lens/releases/latest) 下载 `SubscriptionLens-v1.1.1-windows-x64-setup.exe`。
+1. 从 [Releases](https://github.com/PascalePaF/chatgpt-subscription-lens/releases/latest) 下载 `SubscriptionLens-v1.1.2-windows-x64-setup.exe`。
 2. 双击安装程序。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\SubscriptionLens`，不需要管理员权限。
 3. 从开始菜单运行“订阅镜”。
 4. 需要移除时，在 Windows“设置 → 应用 → 已安装的应用”中卸载。
@@ -74,10 +75,10 @@ cargo clippy --manifest-path native/Cargo.toml --all-targets -- -D warnings
 cargo build --release --locked --manifest-path native/Cargo.toml
 
 New-Item -ItemType Directory -Force release | Out-Null
-makensis /INPUTCHARSET UTF8 /DVERSION=1.1.1 installer/SubscriptionLens.nsi
+makensis /INPUTCHARSET UTF8 /DVERSION=1.1.2 installer/SubscriptionLens.nsi
 ```
 
-生成的安装包位于 `release/SubscriptionLens-v1.1.1-windows-x64-setup.exe`。Release 只分发安装版，不提供绿色免安装包。
+生成的安装包位于 `release/SubscriptionLens-v1.1.2-windows-x64-setup.exe`。Release 只分发安装版，不提供绿色免安装包。
 
 ## 技术与安全设计
 

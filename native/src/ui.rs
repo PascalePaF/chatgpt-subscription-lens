@@ -17,6 +17,7 @@ use crate::{inspect_subscription, validate_credential, AppError};
 
 const WINDOW_SIZE: Vec2 = vec2(1280.0, 800.0);
 const SIDEBAR_WIDTH: f32 = 184.0;
+const CREDENTIAL_EDITOR_HEIGHT: f32 = 76.0;
 const PAGE_BG: Color32 = Color32::from_rgb(245, 244, 239);
 const SIDEBAR_BG: Color32 = Color32::from_rgb(239, 237, 230);
 const INK: Color32 = Color32::from_rgb(37, 36, 32);
@@ -320,14 +321,7 @@ impl SubscriptionLensApp {
             });
             ui.add_space(7.0);
 
-            let editor = egui::TextEdit::multiline(&mut self.credential)
-                .desired_width(f32::INFINITY)
-                .desired_rows(3)
-                .hint_text("在这里粘贴完整内容…")
-                .font(FontId::monospace(12.0))
-                .text_color(INK)
-                .margin(Margin::symmetric(14, 10));
-            let response = ui.add_sized([inner.width(), 76.0], editor);
+            let response = credential_editor(ui, &mut self.credential, inner.width());
             if response.changed() {
                 self.validation = validate_credential(&self.credential);
                 self.last_input_change = (!self.credential.is_empty()).then(Instant::now);
@@ -586,6 +580,56 @@ fn header_row(ui: &mut egui::Ui, title: &str, note: &str) {
             ui.label(RichText::new(note).size(11.0).color(MUTED));
         });
     });
+}
+
+/// Draw the credential editor inside a hard, three-line viewport.
+///
+/// `TextEdit::desired_rows` is only a minimum height for multiline editors. A long pasted
+/// credential can therefore make the raw widget thousands of pixels tall. Reserving the outer
+/// rectangle ourselves keeps every following control in place, while the nested scroll area
+/// clips interaction and painting to the editor viewport.
+fn credential_editor(ui: &mut egui::Ui, credential: &mut String, width: f32) -> egui::Response {
+    let (frame_rect, _) =
+        ui.allocate_exact_size(vec2(width, CREDENTIAL_EDITOR_HEIGHT), Sense::hover());
+    ui.painter().rect(
+        frame_rect,
+        CornerRadius::same(8),
+        Color32::from_rgb(251, 250, 247),
+        Stroke::new(1.0, BORDER),
+        StrokeKind::Inside,
+    );
+
+    let viewport = frame_rect.shrink2(vec2(14.0, 10.0));
+    let mut editor_ui = ui.new_child(
+        UiBuilder::new()
+            .id_salt("credential-editor-viewport")
+            .max_rect(viewport)
+            .layout(Layout::top_down(Align::Min)),
+    );
+    editor_ui.set_clip_rect(viewport);
+
+    egui::ScrollArea::vertical()
+        .id_salt("credential-editor-scroll")
+        .max_height(viewport.height())
+        .min_scrolled_height(viewport.height())
+        .auto_shrink([false, false])
+        .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+        .show(&mut editor_ui, |ui| {
+            ui.set_min_width(viewport.width());
+            ui.set_max_width(viewport.width());
+            ui.add(
+                egui::TextEdit::multiline(credential)
+                    .id_salt("credential-editor")
+                    .desired_width(viewport.width())
+                    .desired_rows(3)
+                    .hint_text("在这里粘贴完整内容…")
+                    .font(FontId::monospace(12.0))
+                    .text_color(INK)
+                    .frame(egui::Frame::NONE)
+                    .margin(Margin::ZERO),
+            )
+        })
+        .inner
 }
 
 fn validation_box(ui: &mut egui::Ui, validation: &CredentialValidation) {
@@ -1565,5 +1609,65 @@ mod tests {
     fn truncation_is_unicode_safe() {
         assert_eq!(truncate_end("订阅镜桌面版", 5), "订阅镜桌…");
         assert_eq!(truncate_middle("account@example.com", 10), "acco…e.com");
+    }
+
+    #[test]
+    fn long_credential_is_clipped_and_cannot_cover_the_query_controls() {
+        let ctx = egui::Context::default();
+        configure_fonts(&ctx);
+        configure_style(&ctx);
+        let raw_input = |events| egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1_000.0, 800.0))),
+            events,
+            ..Default::default()
+        };
+        let mut credential = format!(
+            "{{\"accessToken\":\"{}\",\"account\":{{\"id\":\"account-test\"}}}}",
+            "synthetic-token".repeat(4_000)
+        );
+        let mut editor_top = 0.0;
+        let mut editor_interact_rect = Rect::ZERO;
+        let mut button_rect = Rect::ZERO;
+
+        for _ in 0..2 {
+            let _ = ctx.run_ui(raw_input(Vec::new()), |ui| {
+                ui.set_width(900.0);
+                editor_top = ui.next_widget_position().y;
+                let response = credential_editor(ui, &mut credential, 900.0);
+                let button = ui.button("开始只读查询");
+                editor_interact_rect = response.interact_rect;
+                button_rect = button.rect;
+            });
+        }
+
+        assert!(editor_interact_rect.height() > 0.0);
+        assert!(editor_interact_rect.height() <= CREDENTIAL_EDITOR_HEIGHT);
+        assert!(button_rect.top() < editor_top + CREDENTIAL_EDITOR_HEIGHT + 20.0);
+        assert!(!editor_interact_rect.intersects(button_rect));
+
+        let click_position = button_rect.center();
+        let click_events = vec![
+            egui::Event::PointerMoved(click_position),
+            egui::Event::PointerButton {
+                pos: click_position,
+                button: egui::PointerButton::Primary,
+                pressed: true,
+                modifiers: egui::Modifiers::NONE,
+            },
+            egui::Event::PointerButton {
+                pos: click_position,
+                button: egui::PointerButton::Primary,
+                pressed: false,
+                modifiers: egui::Modifiers::NONE,
+            },
+        ];
+        let mut button_clicked = false;
+        let _ = ctx.run_ui(raw_input(click_events), |ui| {
+            ui.set_width(900.0);
+            let _ = credential_editor(ui, &mut credential, 900.0);
+            let button = ui.button("开始只读查询");
+            button_clicked = button.clicked();
+        });
+        assert!(button_clicked);
     }
 }

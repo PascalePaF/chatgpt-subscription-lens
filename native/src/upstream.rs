@@ -16,7 +16,7 @@ const INVOICES_URL: &str = "https://chatgpt.com/backend-api/invoices";
 const PAYMENT_METHODS_URL: &str = "https://chatgpt.com/backend-api/payments/payment_methods";
 const USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
 const BROWSER_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
-const CODEX_UA: &str = "codex_cli_rs/1.0.0 (Windows 10.0.0; x86_64) subscription-lens/1.1.1";
+const CODEX_UA: &str = "codex_cli_rs/1.0.0 (Windows 10.0.0; x86_64) subscription-lens/1.1.2";
 const MAX_RESPONSE_BYTES: usize = 5 * 1024 * 1024;
 
 #[derive(Debug, Default)]

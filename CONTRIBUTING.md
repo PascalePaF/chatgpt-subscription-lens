@@ -15,7 +15,7 @@ cargo build --release --locked --manifest-path native/Cargo.toml
 
 ```powershell
 New-Item -ItemType Directory -Force release | Out-Null
-makensis /INPUTCHARSET UTF8 /DVERSION=1.1.1 installer/SubscriptionLens.nsi
+makensis /INPUTCHARSET UTF8 /DVERSION=1.1.2 installer/SubscriptionLens.nsi
 ```
 
 ## 提交要求

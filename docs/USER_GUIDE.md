@@ -2,7 +2,7 @@
 
 ## 1. 安装
 
-从 GitHub Releases 下载 `SubscriptionLens-v1.1.1-windows-x64-setup.exe`，双击完成安装。默认按当前 Windows 用户安装，不需要管理员权限。
+从 GitHub Releases 下载 `SubscriptionLens-v1.1.2-windows-x64-setup.exe`，双击完成安装。默认按当前 Windows 用户安装，不需要管理员权限。
 
 安装后从开始菜单运行“订阅镜”。它是固定 1280 × 800 的原生桌面窗口，不会打开浏览器，也不需要 WebView2。需要移除时，从 Windows“设置 → 应用 → 已安装的应用”正常卸载。
 
