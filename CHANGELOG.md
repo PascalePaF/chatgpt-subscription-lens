@@ -2,6 +2,27 @@
 
 所有重要变化记录在此。版本遵循 Semantic Versioning。
 
+## [1.1.1] - 2026-09-19
+
+### Added
+
+- 固定 1280 × 800 的 Rust 原生 Windows 窗口与单屏卡片正反面布局。
+- Pro 20X 黑金、Pro 5X 蓝色、Plus 绿色、Free 灰色套餐配色。
+- Visa、Mastercard、Apple App Store、Google Play 四枚本地内嵌 3D 图标。
+- Codex、Chat、网页端 Pro、生图、Deep Research 五类固定额度槽位；没有可验证字段时明确显示“未返回”。
+- 自定义 NSIS 当前用户安装器、开始菜单入口、卸载项与版本资源。
+
+### Changed
+
+- 完整移除 Tauri、TypeScript、Vite、HTML/CSS/JavaScript 和 WebView2 运行路径。
+- Session 输入区缩为三行；卡片正面集中显示订阅与支付方式，背面集中显示额度和最近账单。
+- Release 构建改为 Cargo 原生编译加项目内 NSIS 脚本。
+
+### Removed
+
+- 页面级纵向滚动与“数据来源”界面。
+- WebView2 数据目录、浏览器内核子进程和旧网页前端资源。
+
 ## [1.1.0] - 2026-09-19
 
 ### Added
@@ -32,5 +53,5 @@
 - Codex 使用额度窗口与恢复时间。
 - 每个上游数据源的可用性和覆盖范围提示。
 - 固定 `chatgpt.com` 的 HTTPS-only、禁止重定向、只读网络层。
-- 凭证自动清空、内存清零、隐私 WebView 与同目录运行数据。
+- 凭证自动清空、内存清零与当时版本的隐私 WebView 运行模式。
 - Windows x64 绿色版构建和 GitHub 自动发布流程。

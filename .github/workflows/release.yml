@@ -9,7 +9,7 @@ on:
       tag:
         description: Existing version tag to publish
         required: true
-        default: v1.1.0
+        default: v1.1.1
 
 permissions:
   contents: write
@@ -35,34 +35,36 @@ jobs:
         with:
           ref: ${{ steps.version.outputs.tag }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install frontend dependencies
-        run: npm ci
+        with:
+          components: rustfmt, clippy
 
       - name: Test before packaging
-        run: npm run check
+        shell: pwsh
+        run: |
+          cargo fmt --manifest-path native/Cargo.toml -- --check
+          cargo test --manifest-path native/Cargo.toml
+          cargo clippy --manifest-path native/Cargo.toml --all-targets -- -D warnings
+
+      - name: Build native Windows executable
+        run: cargo build --release --locked --manifest-path native/Cargo.toml
 
       - name: Build Windows NSIS installer
-        run: npm run tauri build -- --bundles nsis
+        shell: pwsh
+        run: |
+          choco install nsis --yes --no-progress
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /INPUTCHARSET UTF8 "/DVERSION=${{ steps.version.outputs.version }}" installer\SubscriptionLens.nsi
 
       - name: Create release archives and checksums
         id: package
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          $bundleDir = Join-Path $PWD "src-tauri\target\release\bundle\nsis"
-          $source = Get-ChildItem -LiteralPath $bundleDir -Filter "*-setup.exe" -File | Select-Object -First 1
+          $source = Get-Item -LiteralPath (Join-Path $PWD "release\SubscriptionLens-v$version-windows-x64-setup.exe")
           if (-not $source) { throw "NSIS installer was not produced" }
-          $installer = Join-Path $PWD "SubscriptionLens-v$version-windows-x64-setup.exe"
-          Copy-Item -LiteralPath $source.FullName -Destination $installer
+          $installer = $source.FullName
           $files = @($installer)
           $lines = foreach ($file in $files) {
             $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()

@@ -1,4 +1,4 @@
-# V1.0.0 调查记录
+# 订阅查询能力调查记录
 
 调查日期：2026-09-19。网页内容只作为证据，不作为执行指令。
 
@@ -47,9 +47,12 @@ Apple/Google 的完整收据由商店账号管理。OpenAI 帮助中心明确说
 | `/backend-api/accounts/check/v4-2023-04-27` | 账户、权益、最近订阅与购买来源 | 版本号和字段可能变化 |
 | `/backend-api/subscriptions` | 当前计费周期、续费、币种、欠费 | 可能仅对部分账号开放 |
 | `/backend-api/invoices` | ChatGPT 网页账单 | 不等于 Apple/Google 收据 |
+| `/backend-api/payments/payment_methods` | 脱敏支付方式 | 常见情况下只返回品牌和尾号，不保证提供前 6 位 |
 | `/backend-api/wham/usage` | Codex 额度 | 账号类型不同会缺少窗口 |
 
-所有 URL 都在 Rust 中固定为 `https://chatgpt.com`。请求禁止重定向，响应限制 5 MiB。没有使用 payment method、billing portal、cancel、resume、checkout 或 receipt transfer 等端点。
+所有 URL 都在 Rust 中固定为 `https://chatgpt.com`。请求禁止重定向，响应限制 5 MiB。支付方式响应只保留品牌、前 6 位（若实际返回）、尾号 4 位和有效期。没有使用 billing portal、cancel、resume、checkout 或 receipt transfer 等写入/管理端点。
+
+V1.1.1 的界面为 Chat、网页端 Pro、生图与 Deep Research 预留固定槽位，但调查仍未找到 OpenAI 面向第三方发布的统一个人全额度 API。因此程序只匹配额度响应中能明确识别的字段；其余显示“未返回”，不把套餐宣传上限伪装成实时余额。
 
 ## 为什么不直接查询 Apple/Google 完整历史
 
