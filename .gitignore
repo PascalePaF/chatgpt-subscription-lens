@@ -12,4 +12,5 @@ release/*.exe
 release/*.zip
 release/*.msi
 release/*.sig
+release/
 subscription-lens-data/

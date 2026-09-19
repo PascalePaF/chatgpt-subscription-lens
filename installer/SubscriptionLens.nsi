@@ -47,6 +47,24 @@ VIAddVersionKey /LANG=2052 "LegalCopyright" "Copyright © 2026 ${PUBLISHER}"
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
 
+Function .onInit
+  SetShellVarContext current
+  IfFileExists "$LOCALAPPDATA\订阅镜\uninstall.exe" 0 LegacyCleanupDone
+    ExecWait '"$LOCALAPPDATA\订阅镜\uninstall.exe" /S' $0
+    ${If} $0 != 0
+      MessageBox MB_ICONSTOP "无法移除旧版订阅镜。请先关闭旧版程序，再重新运行安装程序。"
+      Abort
+    ${EndIf}
+    Sleep 750
+  LegacyCleanupDone:
+  Delete "$SMPROGRAMS\订阅镜.lnk"
+  DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\订阅镜"
+  Delete "$LOCALAPPDATA\订阅镜\chatgpt-subscription-lens.exe"
+  Delete "$LOCALAPPDATA\订阅镜\uninstall.exe"
+  RMDir /r "$LOCALAPPDATA\订阅镜\subscription-lens-data"
+  RMDir "$LOCALAPPDATA\订阅镜"
+FunctionEnd
+
 Section "安装 ${APP_NAME}" SecMain
   SetShellVarContext current
   SetOutPath "$INSTDIR"
@@ -64,6 +82,7 @@ Section "安装 ${APP_NAME}" SecMain
   WriteRegStr HKCU "Software\${APP_ID}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "DisplayVersion" "${VERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "Publisher" "${PUBLISHER}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "URLInfoAbout" "${PROJECT_URL}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}" "DisplayIcon" "$INSTDIR\${APP_EXE},0"

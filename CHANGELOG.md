@@ -11,6 +11,7 @@
 - Visa、Mastercard、Apple App Store、Google Play 四枚本地内嵌 3D 图标。
 - Codex、Chat、网页端 Pro、生图、Deep Research 五类固定额度槽位；没有可验证字段时明确显示“未返回”。
 - 自定义 NSIS 当前用户安装器、开始菜单入口、卸载项与版本资源。
+- 从 V1.1.0 中文目录自动迁移到新的当前用户安装目录。
 
 ### Changed
 

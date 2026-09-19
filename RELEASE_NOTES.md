@@ -8,6 +8,7 @@ V1.1.1 把整个呈现层从 WebView/Tauri 重建为真正的 Windows 原生桌�
 - 使用 Rust、eframe/egui、winit 和本机 OpenGL 绘制固定 1280 × 800 窗口。
 - 安装目录不再创建 `subscription-lens-data/WebView2`，运行时没有 WebView 子进程。
 - 保留标准 Setup EXE、开始菜单入口、Windows 卸载项与静默卸载支持。
+- 安装时自动迁移并移除 V1.1.0 的旧目录、旧快捷方式和旧版 WebView 缓存，避免并存。
 
 ## 全新单屏界面
 
