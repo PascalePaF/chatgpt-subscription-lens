@@ -10,7 +10,7 @@ Apple/Google 的完整收据由商店账号管理。OpenAI 帮助中心明确说
 
 ## OpenAI 官方资料
 
-- [OpenAI / Codex authentication](https://developers.openai.com/docs/auth)：说明 ChatGPT 登录、API key 和 Codex 本地认证缓存的安全边界；未提供个人 ChatGPT 订阅历史 API。
+- [OpenAI / Codex 身份验证](https://developers.openai.com/zh-Hans/docs/auth)：说明 ChatGPT 登录、API key 和 Codex 本地认证缓存的安全边界；未提供个人 ChatGPT 订阅历史 API。
 - [如何避免 iOS、Android 与网页重复扣费](https://help.openai.com/articles/20001043)：说明 Apple、Google Play 和 chatgpt.com 各自管理原平台订阅。
 - [Apple App Store 订阅发票](https://help.openai.com/zh-hans-cn/articles/9030143-%E5%A6%82%E6%9E%9C%E6%88%91%E6%98%AF%E5%9C%A8-apple-app-store-%E8%AE%A2%E9%98%85%E7%9A%84%E5%A6%82%E4%BD%95%E8%8E%B7%E5%8F%96%E6%88%91%E7%9A%84-chatgpt-%E8%AE%A2%E9%98%85%E5%8F%91%E7%A5%A8)：完整 Apple 收据应在 Apple 购买历史中查看。
 - [取消 ChatGPT 订阅](https://help.openai.com/en/articles/7232927-how-do-i-cancel-my-chatgpt-plus-or-chatgpt-pro-subscription)：再次确认订阅应在最初购买平台管理。
