@@ -3,13 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="订阅镜 · ChatGPT 订阅查询"
         Width="1160" Height="720"
-        MinWidth="1160" MaxWidth="1160"
-        MinHeight="720" MaxHeight="720"
+        MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="CanMinimize"
+        ResizeMode="CanResizeWithGrip"
         Background="#F5F2EC"
         FontFamily="Segoe UI, Microsoft YaHei UI">
-    <Grid>
+    <Viewbox x:Name="LayoutScaler" Stretch="Uniform" StretchDirection="DownOnly">
+    <Grid Width="1160" Height="680">
         <Grid.RowDefinitions>
             <RowDefinition Height="64" />
             <RowDefinition Height="*" />
@@ -109,6 +109,8 @@
                                      BorderBrush="#D8D2C8" BorderThickness="1"
                                      Background="#FBFAF7"
                                      TextChanged="CredentialBox_TextChanged"
+                                     AutomationProperties.Name="ChatGPT 会话凭证"
+                                     AutomationProperties.HelpText="固定三行高度。支持完整 Session JSON、Codex auth.json、Access Token 或 Session Token。"
                                      ToolTip="输入区固定为三行高度，内容再长也不会撑大窗口。" />
                             <TextBlock x:Name="CredentialPlaceholder" IsHitTestVisible="False" Margin="13,11,13,0" VerticalAlignment="Top"
                                        Foreground="#A29B92" FontSize="12" Text="在此粘贴凭证；窗口只显示约三行…" />
@@ -128,12 +130,13 @@
                         <CheckBox Grid.Row="4" x:Name="ConsentCheckBox" Margin="0,16,0,0" VerticalContentAlignment="Center"
                                   FontSize="12" Foreground="{StaticResource MutedBrush}"
                                   Content="我确认这是自己的账户，并理解未公开接口可能变化。"
+                                  AutomationProperties.Name="账户所有权与接口风险确认"
                                   Checked="ConsentCheckBox_Changed" Unchecked="ConsentCheckBox_Changed" />
 
                         <Grid Grid.Row="5" Margin="0,19,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <Button x:Name="ClearButton" Style="{StaticResource GhostButton}" Padding="16,10" Content="清空" Click="ClearButton_Click" />
-                            <Button Grid.Column="2" x:Name="QueryButton" Style="{StaticResource PrimaryButton}" MinWidth="142" Content="查询订阅  →" Click="QueryButton_Click" IsEnabled="False" />
+                            <Button Grid.Column="2" x:Name="QueryButton" Style="{StaticResource PrimaryButton}" MinWidth="142" Content="查询订阅  →" Click="QueryButton_Click" IsEnabled="False" IsDefault="True" AutomationProperties.Name="查询订阅" />
                         </Grid>
                     </Grid>
                 </Border>
@@ -149,8 +152,8 @@
 
                 <Grid Grid.Row="0">
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock x:Name="ResultEmail" FontSize="18" FontWeight="SemiBold" />
-                        <TextBlock x:Name="ResultMeta" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
+                        <TextBlock x:Name="ResultEmail" FontSize="18" FontWeight="SemiBold" MaxWidth="780" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="ResultMeta" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" MaxWidth="780" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                     <Button x:Name="NewQueryButton" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource GhostButton}" Padding="16,8" Content="查询另一个账户" Click="NewQueryButton_Click" />
                 </Grid>
@@ -163,7 +166,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
                             <TextBlock x:Name="PlanStateText" Text="当前套餐" Foreground="#DCC890" FontSize="12" FontWeight="SemiBold" />
-                            <TextBlock x:Name="PlanNameText" Text="Pro 20X" Foreground="#FFF9E9" FontFamily="Georgia, Microsoft YaHei UI" FontSize="42" Margin="0,6,0,0" />
+                            <TextBlock x:Name="PlanNameText" Text="Pro 20X" Foreground="#FFF9E9" FontFamily="Georgia, Microsoft YaHei UI" FontSize="42" Margin="0,6,0,0" MaxWidth="520" TextTrimming="CharacterEllipsis" />
                             <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                 <StackPanel Width="145">
                                     <TextBlock Text="剩余时间" Foreground="#AFAAA2" FontSize="10" />
@@ -193,7 +196,7 @@
                                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                 <TextBlock Text="P A Y M E N T   /   S T O R E" Foreground="#8E9189" FontSize="8" />
                                 <StackPanel Grid.Row="1" VerticalAlignment="Center">
-                                    <TextBlock x:Name="PaymentLabelText" Text="未返回支付方式" Foreground="White" FontSize="18" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="PaymentLabelText" Text="未返回支付方式" Foreground="White" FontSize="18" FontWeight="SemiBold" MaxWidth="225" TextTrimming="CharacterEllipsis" />
                                     <TextBlock x:Name="PaymentNumberText" Text="—" Foreground="#BFC1BA" FontFamily="Cascadia Mono, Consolas" FontSize="13" Margin="0,6,0,0" />
                                 </StackPanel>
                                 <TextBlock Grid.Row="2" x:Name="PaymentMetaText" Text="只显示接口实际返回的脱敏信息" Foreground="#777A73" FontSize="10" />
@@ -275,4 +278,5 @@
             <TextBlock x:Name="VersionText" HorizontalAlignment="Right" Foreground="#8E8880" FontSize="9" VerticalAlignment="Center" />
         </Grid>
     </Grid>
+    </Viewbox>
 </Window>

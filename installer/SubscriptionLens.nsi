@@ -4,7 +4,7 @@ Unicode true
 !include "LogicLib.nsh"
 
 !ifndef APP_VERSION
-  !define APP_VERSION "1.0.0"
+  !define APP_VERSION "1.0.1"
 !endif
 
 !define APP_NAME "订阅镜"
@@ -63,6 +63,9 @@ Function .onInit
   Delete "$LOCALAPPDATA\订阅镜\uninstall.exe"
   RMDir /r "$LOCALAPPDATA\订阅镜\subscription-lens-data"
   RMDir "$LOCALAPPDATA\订阅镜"
+  ; V1.0.0 used .NET single-file extraction. V1.0.1 is multi-file and removes
+  ; only its own reproducible legacy runtime cache, never user documents.
+  RMDir /r "$TEMP\.net\SubscriptionLens"
 FunctionEnd
 
 Section "安装 ${APP_NAME}" SecMain
@@ -71,11 +74,12 @@ Section "安装 ${APP_NAME}" SecMain
   ; Remove files that existed in the retired Rust build but are not part of the WPF rebuild.
   Delete "$INSTDIR\OFL-Noto-CJK.txt"
   Delete "$INSTDIR\THIRD_PARTY_NOTICES.md"
-  File /oname=${APP_EXE} "..\artifacts\publish\SubscriptionLens.exe"
+  File /r "..\artifacts\publish\*.*"
   File /oname=LICENSE.txt "..\LICENSE"
   File /oname=README.md "..\README.md"
   File /oname=PRIVACY.md "..\PRIVACY.md"
   File /oname=SECURITY.md "..\SECURITY.md"
+  File /oname=THIRD_PARTY_NOTICES.md "..\THIRD_PARTY_NOTICES.md"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   CreateDirectory "$SMPROGRAMS\订阅镜"
@@ -101,13 +105,9 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\订阅镜\卸载订阅镜.lnk"
   RMDir "$SMPROGRAMS\订阅镜"
 
-  Delete "$INSTDIR\${APP_EXE}"
-  Delete "$INSTDIR\LICENSE.txt"
-  Delete "$INSTDIR\README.md"
-  Delete "$INSTDIR\PRIVACY.md"
-  Delete "$INSTDIR\SECURITY.md"
-  Delete "$INSTDIR\Uninstall.exe"
-  RMDir "$INSTDIR"
+  ; The application never writes user data here, so the installation tree can
+  ; be removed as one exact, per-user directory, including self-contained runtime files.
+  RMDir /r "$INSTDIR"
 
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
   DeleteRegKey HKCU "Software\${APP_ID}"

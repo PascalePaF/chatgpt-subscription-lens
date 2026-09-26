@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -7,16 +9,23 @@ using SubscriptionLens.Core;
 
 namespace SubscriptionLens.App;
 
-public partial class MainWindow : Window
+public sealed partial class MainWindow : Window, IDisposable
 {
     private readonly ChatGptQueryService _queryService = new();
     private readonly DispatcherTimer _validationTimer;
     private CancellationTokenSource? _queryCancellation;
     private bool _inputIsValid;
+    private bool _disposed;
 
     public MainWindow()
     {
         InitializeComponent();
+        var workArea = SystemParameters.WorkArea;
+        var layout = LayoutPlanner.Calculate(workArea.Width, workArea.Height);
+        Width = layout.Width;
+        Height = layout.Height;
+        MinWidth = layout.MinWidth;
+        MinHeight = layout.MinHeight;
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         VersionText.Text = $"v{version?.Major}.{version?.Minor}.{version?.Build} · 开源本地版";
         _validationTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(220) };
@@ -25,19 +34,14 @@ public partial class MainWindow : Window
             _validationTimer.Stop();
             ValidateCredentialInput();
         };
-        Closed += (_, _) =>
-        {
-            _queryCancellation?.Cancel();
-            _queryCancellation?.Dispose();
-            _queryService.Dispose();
-        };
+        Closed += (_, _) => Dispose();
     }
 
     internal bool ValidateLayoutContract() =>
-        Math.Abs(Width - 1160d) < 0.1 &&
-        Math.Abs(Height - 720d) < 0.1 &&
-        Math.Abs(MinWidth - MaxWidth) < 0.1 &&
-        Math.Abs(MinHeight - MaxHeight) < 0.1 &&
+        Width <= SystemParameters.WorkArea.Width &&
+        Height <= SystemParameters.WorkArea.Height &&
+        LayoutScaler.Stretch == Stretch.Uniform &&
+        LayoutScaler.StretchDirection == StretchDirection.DownOnly &&
         Math.Abs(CredentialBox.Height - 82d) < 0.1 &&
         Math.Abs(CredentialBox.MinHeight - CredentialBox.MaxHeight) < 0.1 &&
         QueryButton.Visibility == Visibility.Visible &&
@@ -82,6 +86,10 @@ public partial class MainWindow : Window
         QueryButton.IsEnabled = _inputIsValid && ConsentCheckBox.IsChecked == true && _queryCancellation is null;
     }
 
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "A top-level desktop UI event must convert unexpected non-fatal failures into a safe message instead of terminating the process.")]
     private async void QueryButton_Click(object sender, RoutedEventArgs e)
     {
         ValidateCredentialInput();
@@ -91,7 +99,8 @@ public partial class MainWindow : Window
         }
 
         _queryCancellation?.Dispose();
-        _queryCancellation = new CancellationTokenSource();
+        var queryCancellation = new CancellationTokenSource();
+        _queryCancellation = queryCancellation;
         UpdateQueryButton();
         BusyStatusText.Text = "正在检查凭证完整性…";
         BusyOverlay.Visibility = Visibility.Visible;
@@ -100,7 +109,9 @@ public partial class MainWindow : Window
 
         try
         {
-            var result = await _queryService.QueryAsync(credential, progress, _queryCancellation.Token);
+            var result = await _queryService
+                .QueryAsync(credential, progress, queryCancellation.Token)
+                .ConfigureAwait(true);
             RenderResult(result);
             CredentialBox.Clear();
             ConsentCheckBox.IsChecked = false;
@@ -128,8 +139,11 @@ public partial class MainWindow : Window
         {
             credential = string.Empty;
             BusyOverlay.Visibility = Visibility.Collapsed;
-            _queryCancellation.Dispose();
-            _queryCancellation = null;
+            queryCancellation.Dispose();
+            if (ReferenceEquals(_queryCancellation, queryCancellation))
+            {
+                _queryCancellation = null;
+            }
             UpdateQueryButton();
         }
     }
@@ -137,7 +151,7 @@ public partial class MainWindow : Window
     private void RenderResult(InspectionResult result)
     {
         ResultEmail.Text = result.Email;
-        ResultMeta.Text = $"{result.AccountIdMasked}  ·  {result.CheckedAt:yyyy-MM-dd HH:mm:ss}  ·  {result.SuccessfulProbeCount}/{result.AttemptedProbeCount} 项读取成功";
+        ResultMeta.Text = $"{result.AccountIdMasked}  ·  {result.CheckedAt.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)}  ·  {result.SuccessfulProbeCount}/{result.AttemptedProbeCount} 项读取成功";
         AccountMaskedText.Text = result.AccountIdMasked;
 
         ApplyPlanTheme(result.Subscription.Visual);
@@ -150,7 +164,7 @@ public partial class MainWindow : Window
             _ => "状态未确认",
         };
         RemainingText.Text = FormatRemaining(result.Subscription.ExpiresAt);
-        ExpiryText.Text = result.Subscription.ExpiresAt?.LocalDateTime.ToString("yyyy-MM-dd HH:mm") ?? "未返回";
+        ExpiryText.Text = result.Subscription.ExpiresAt?.LocalDateTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "未返回";
         var renewal = result.Subscription.WillRenew switch
         {
             true => "自动续费",
@@ -166,7 +180,7 @@ public partial class MainWindow : Window
         RenderFeatureQuotas(result.FeatureQuotas);
         RenderBilling(result.BillingRecords);
 
-        var warning = result.Warnings.FirstOrDefault();
+        var warning = result.Warnings.Count > 0 ? result.Warnings[0] : null;
         WarningBorder.Visibility = warning is null ? Visibility.Collapsed : Visibility.Visible;
         WarningText.Text = warning ?? string.Empty;
     }
@@ -258,7 +272,16 @@ public partial class MainWindow : Window
         {
             var remaining = quota.UsedPercent is { } used ? Math.Clamp(100d - used, 0d, 100d) : (double?)null;
             var header = new Grid { Margin = new Thickness(0, 0, 0, 4) };
-            header.Children.Add(new TextBlock { Text = quota.Name, FontSize = 11, FontWeight = FontWeights.SemiBold });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.Children.Add(new TextBlock
+            {
+                Text = quota.Name,
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 0, 10, 0),
+            });
             var value = new TextBlock
             {
                 Text = remaining is null ? "未返回" : $"剩余 {remaining:0.#}%",
@@ -267,6 +290,7 @@ public partial class MainWindow : Window
                 Foreground = quota.Allowed == false ? BrushFrom("#B6503D") : BrushFrom("#3D7A59"),
                 FontWeight = FontWeights.SemiBold,
             };
+            Grid.SetColumn(value, 1);
             header.Children.Add(value);
 
             var progress = new ProgressBar
@@ -278,7 +302,7 @@ public partial class MainWindow : Window
                 Background = BrushFrom("#E8E4DE"),
                 Foreground = quota.Allowed == false ? BrushFrom("#C96442") : BrushFrom("#638B71"),
             };
-            var resetText = quota.ResetsAt?.ToLocalTime().ToString("MM-dd HH:mm") ?? "重置时间未返回";
+            var resetText = quota.ResetsAt?.ToLocalTime().ToString("MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "重置时间未返回";
             var reset = new TextBlock
             {
                 Text = resetText,
@@ -352,7 +376,7 @@ public partial class MainWindow : Window
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             grid.Children.Add(new TextBlock
             {
-                Text = record.CreatedAt?.LocalDateTime.ToString("yyyy-MM-dd") ?? "日期未知",
+                Text = record.CreatedAt?.LocalDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "日期未知",
                 FontSize = 10,
                 Foreground = (Brush)FindResource("MutedBrush"),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -369,7 +393,7 @@ public partial class MainWindow : Window
             var amount = new TextBlock
             {
                 Text = record.Amount is { } number
-                    ? $"{record.Currency ?? string.Empty} {number:0.00}".Trim()
+                    ? CurrencyRules.Format(number, record.Currency)
                     : LocalizeInvoiceStatus(record.Status),
                 FontSize = 11,
                 FontWeight = FontWeights.SemiBold,
@@ -415,14 +439,30 @@ public partial class MainWindow : Window
             : $"{Math.Max(0, remaining.Hours)} 小时 {remaining.Minutes} 分";
     }
 
-    private static string LocalizeInvoiceStatus(string status) => status.ToLowerInvariant() switch
+    private static string LocalizeInvoiceStatus(string status) => status.ToUpperInvariant() switch
     {
-        "paid" or "succeeded" or "complete" => "已支付",
-        "refunded" => "已退款",
-        "open" or "pending" => "待处理",
-        "void" or "failed" => "未支付",
+        "PAID" or "SUCCEEDED" or "COMPLETE" => "已支付",
+        "REFUNDED" => "已退款",
+        "OPEN" or "PENDING" => "待处理",
+        "VOID" or "FAILED" => "未支付",
         _ => status,
     };
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _validationTimer.Stop();
+        _queryCancellation?.Cancel();
+        _queryCancellation?.Dispose();
+        _queryCancellation = null;
+        _queryService.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     private static SolidColorBrush BrushFrom(string color) =>
         new((Color)ColorConverter.ConvertFromString(color));

@@ -14,18 +14,20 @@ public sealed class ChatGptQueryService : IDisposable
     private const int DefaultMaxResponseBytes = 2 * 1024 * 1024;
     private const int InvoiceMaxResponseBytes = 8 * 1024 * 1024;
     private readonly HttpClient _client;
+    private readonly HttpClientHandler? _ownedHandler;
     private readonly bool _ownsClient;
 
     public ChatGptQueryService()
     {
-        var handler = new HttpClientHandler
+        _ownedHandler = new HttpClientHandler
         {
             AllowAutoRedirect = false,
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+            CheckCertificateRevocationList = true,
             UseCookies = false,
             MaxConnectionsPerServer = 6,
         };
-        _client = new HttpClient(handler, disposeHandler: true)
+        _client = new HttpClient(_ownedHandler, disposeHandler: false)
         {
             Timeout = Timeout.InfiniteTimeSpan,
         };
@@ -101,7 +103,22 @@ public sealed class ChatGptQueryService : IDisposable
             DefaultMaxResponseBytes,
             cancellationToken);
 
-        await Task.WhenAll(subscriptionTask, invoiceTask, paymentTask, usageTask).ConfigureAwait(false);
+        var parallelTasks = new[] { subscriptionTask, invoiceTask, paymentTask, usageTask };
+        try
+        {
+            await Task.WhenAll(parallelTasks).ConfigureAwait(false);
+        }
+        catch
+        {
+            foreach (var completedTask in parallelTasks.Where(task => task.IsCompletedSuccessfully))
+            {
+                var completed = await completedTask.ConfigureAwait(false);
+                completed.Dispose();
+            }
+
+            throw;
+        }
+
         using var subscription = await subscriptionTask.ConfigureAwait(false);
         using var invoices = await invoiceTask.ConfigureAwait(false);
         using var payment = await paymentTask.ConfigureAwait(false);
@@ -139,29 +156,9 @@ public sealed class ChatGptQueryService : IDisposable
         var failures = new List<string>();
         foreach (var cookie in candidates)
         {
-            using var request = CreateRequest(SessionUri, accessToken: null, accountId: null);
-            request.Headers.TryAddWithoutValidation("Cookie", cookie);
-
             try
             {
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                timeout.CancelAfter(TimeSpan.FromSeconds(20));
-                using var response = await _client
-                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
-                    .ConfigureAwait(false);
-                if (response.StatusCode != HttpStatusCode.OK)
-                {
-                    failures.Add(StatusMessage(response.StatusCode));
-                    continue;
-                }
-
-                var json = await ReadLimitedStringAsync(response, DefaultMaxResponseBytes, timeout.Token)
-                    .ConfigureAwait(false);
-                using var complete = CredentialParser.ParseSessionResponse(json, DateTimeOffset.UtcNow);
-                credential.AccessToken = complete.AccessToken;
-                credential.Email = complete.Email;
-                credential.AccountId = complete.AccountId;
-                credential.ExpiresAt = complete.ExpiresAt;
+                await ExchangeSessionCandidateAsync(credential, cookie, cancellationToken).ConfigureAwait(false);
                 return;
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -179,6 +176,32 @@ public sealed class ChatGptQueryService : IDisposable
         }
 
         throw new LensException($"Session 未通过 chatgpt.com 核验。{failures.FirstOrDefault() ?? "会话可能已过期。"}");
+    }
+
+    private async Task ExchangeSessionCandidateAsync(
+        CredentialMaterial credential,
+        string cookie,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateRequest(SessionUri, accessToken: null, accountId: null);
+        request.Headers.TryAddWithoutValidation("Cookie", cookie);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(20));
+        using var response = await _client
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
+            .ConfigureAwait(false);
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            throw new LensException(StatusMessage(response.StatusCode));
+        }
+
+        var json = await ReadLimitedStringAsync(response, DefaultMaxResponseBytes, timeout.Token)
+            .ConfigureAwait(false);
+        using var complete = CredentialParser.ParseSessionResponse(json, DateTimeOffset.UtcNow);
+        credential.AccessToken = complete.AccessToken;
+        credential.Email = complete.Email;
+        credential.AccountId = complete.AccountId;
+        credential.ExpiresAt = complete.ExpiresAt;
     }
 
     private Task<FetchOutcome> FetchAccountScopedAsync(
@@ -260,6 +283,13 @@ public sealed class ChatGptQueryService : IDisposable
                 return new FetchOutcome(name, ProbeState.Failed, null, "服务响应不是有效 JSON");
             }
 
+            var semanticProblem = PayloadProblem(name, document.RootElement);
+            if (semanticProblem is not null)
+            {
+                document.Dispose();
+                return new FetchOutcome(name, ProbeState.Unavailable, null, semanticProblem);
+            }
+
             return new FetchOutcome(name, ProbeState.Success, document, "读取成功");
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -281,7 +311,8 @@ public sealed class ChatGptQueryService : IDisposable
         EnsureAllowedUri(uri);
         var request = new HttpRequestMessage(HttpMethod.Get, uri);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Headers.UserAgent.ParseAdd("SubscriptionLens/1.0.0 (Windows; local-read-only)");
+        var version = typeof(ChatGptQueryService).Assembly.GetName().Version;
+        request.Headers.UserAgent.ParseAdd($"SubscriptionLens/{version?.Major}.{version?.Minor}.{version?.Build} (Windows; local-read-only)");
         request.Headers.TryAddWithoutValidation("OAI-Language", "zh-CN");
         request.Headers.Referrer = new Uri("https://chatgpt.com/");
         if (!string.IsNullOrWhiteSpace(accessToken))
@@ -316,7 +347,7 @@ public sealed class ChatGptQueryService : IDisposable
             throw new LensException("服务响应超过本地安全上限");
         }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var buffer = new MemoryStream(Math.Min(maxBytes, 64 * 1024));
         var chunk = new byte[16 * 1024];
         while (true)
@@ -332,7 +363,7 @@ public sealed class ChatGptQueryService : IDisposable
                 throw new LensException("服务响应超过本地安全上限");
             }
 
-            buffer.Write(chunk, 0, read);
+            await buffer.WriteAsync(chunk.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
         }
 
         return buffer.ToArray();
@@ -342,6 +373,59 @@ public sealed class ChatGptQueryService : IDisposable
     {
         var javascriptOffset = -(int)DateTimeOffset.Now.Offset.TotalMinutes;
         return new Uri($"{AccountCheckBaseUri}?timezone_offset_min={javascriptOffset}");
+    }
+
+    private static string? PayloadProblem(string name, JsonElement root)
+    {
+        if (root.ValueKind == JsonValueKind.Object)
+        {
+            var detail = JsonAccess.At(root, "detail");
+            var error = JsonAccess.At(root, "error");
+            if (detail is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined } ||
+                error is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined })
+            {
+                return "服务返回了错误信封，没有可用数据";
+            }
+        }
+
+        return name switch
+        {
+            "账户状态" when !HasNonEmptyObject(root, "accounts") => "账户响应缺少 accounts 数据",
+            "账户状态" when !HasUsableAccount(root) => "账户响应中的工作区均已停用",
+            "当前订阅" when !HasAny(root, "id", "plan_type", "active_until", "billing_period") =>
+                "订阅响应缺少可识别字段",
+            "Codex 额度" when !HasAny(root, "plan_type", "rate_limit", "additional_rate_limits", "credits") =>
+                "额度响应缺少可识别字段",
+            "网页账单" when root.ValueKind != JsonValueKind.Array &&
+                         !HasArray(root, "data", "invoices", "items", "transactions") =>
+                "账单响应缺少列表字段",
+            "支付方式" when root.ValueKind != JsonValueKind.Array &&
+                         !HasArray(root, "payment_methods", "data", "items", "cards") =>
+                "支付方式响应缺少列表字段",
+            _ => null,
+        };
+    }
+
+    private static bool HasAny(JsonElement root, params string[] names) =>
+        names.Any(name => JsonAccess.At(root, name) is { ValueKind: not JsonValueKind.Null and not JsonValueKind.Undefined });
+
+    private static bool HasArray(JsonElement root, params string[] names) =>
+        names.Any(name => JsonAccess.At(root, name) is { ValueKind: JsonValueKind.Array });
+
+    private static bool HasNonEmptyObject(JsonElement root, string name)
+    {
+        var value = JsonAccess.At(root, name);
+        return value is { ValueKind: JsonValueKind.Object } && value.Value.EnumerateObject().Any();
+    }
+
+    private static bool HasUsableAccount(JsonElement root)
+    {
+        var accounts = JsonAccess.At(root, "accounts");
+        return accounts is { ValueKind: JsonValueKind.Object } && accounts.Value
+            .EnumerateObject()
+            .Any(property =>
+                JsonAccess.Bool(property.Value, "account", "is_deactivated") != true &&
+                JsonAccess.Bool(property.Value, "is_deactivated") != true);
     }
 
     private static Uri BuildChatGptUri(string path, IEnumerable<(string Name, string Value)> query)
@@ -369,6 +453,7 @@ public sealed class ChatGptQueryService : IDisposable
     {
         HttpStatusCode.BadRequest => "接口不适用于此账户或请求字段已变化（HTTP 400）",
         HttpStatusCode.Unauthorized => "凭证已过期或未获授权（HTTP 401）",
+        HttpStatusCode.PaymentRequired => "账户付款需要处理，或工作区已停用（HTTP 402）",
         HttpStatusCode.Forbidden => "账户或网络被拒绝访问（HTTP 403）",
         HttpStatusCode.NotFound => "此账户没有该项数据，或接口已变化（HTTP 404）",
         HttpStatusCode.TooManyRequests => "请求过于频繁，请稍后再试（HTTP 429）",
@@ -380,6 +465,7 @@ public sealed class ChatGptQueryService : IDisposable
         if (_ownsClient)
         {
             _client.Dispose();
+            _ownedHandler?.Dispose();
         }
     }
 }

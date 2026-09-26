@@ -206,6 +206,10 @@ public static partial class CredentialParser
         }
 
         var value = input.Trim().TrimStart('\uFEFF');
+        if (value.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            value = value[7..].Trim();
+        }
         foreach (var character in value)
         {
             if (char.IsControl(character) && character is not '\r' and not '\n' and not '\t')
@@ -225,14 +229,14 @@ public static partial class CredentialParser
             ? input[7..].Trim()
             : input;
 
-        if (value.Contains('\r') || value.Contains('\n'))
+        if (value.Contains('\r', StringComparison.Ordinal) || value.Contains('\n', StringComparison.Ordinal))
         {
             return false;
         }
 
         foreach (var part in value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            var separator = part.IndexOf('=');
+            var separator = part.IndexOf('=', StringComparison.Ordinal);
             if (separator <= 0)
             {
                 continue;

@@ -160,15 +160,15 @@ internal static partial class SubscriptionNormalizer
 
     private static PaymentSummary NormalizePayment(JsonDocument? paymentDocument, string? purchaseOrigin)
     {
-        var origin = purchaseOrigin?.ToLowerInvariant() ?? string.Empty;
-        if (origin.Contains("ios", StringComparison.Ordinal) || origin.Contains("apple", StringComparison.Ordinal))
+        var origin = purchaseOrigin?.ToUpperInvariant() ?? string.Empty;
+        if (origin.Contains("IOS", StringComparison.Ordinal) || origin.Contains("APPLE", StringComparison.Ordinal))
         {
             return new PaymentSummary { Kind = PaymentKind.AppleAppStore, Label = "Apple App Store" };
         }
 
-        if (origin.Contains("android", StringComparison.Ordinal) ||
-            origin.Contains("google", StringComparison.Ordinal) ||
-            origin.Contains("play", StringComparison.Ordinal))
+        if (origin.Contains("ANDROID", StringComparison.Ordinal) ||
+            origin.Contains("GOOGLE", StringComparison.Ordinal) ||
+            origin.Contains("PLAY", StringComparison.Ordinal))
         {
             return new PaymentSummary { Kind = PaymentKind.GooglePlay, Label = "Google Play" };
         }
@@ -185,6 +185,9 @@ internal static partial class SubscriptionNormalizer
             return new PaymentSummary();
         }
 
+        var defaultId = FirstNonEmpty(
+            JsonAccess.String(root, "default_payment_method_id"),
+            JsonAccess.String(root, "default_payment_method"));
         JsonElement? selected = null;
         foreach (var method in methods.Value.EnumerateArray())
         {
@@ -193,10 +196,16 @@ internal static partial class SubscriptionNormalizer
                 continue;
             }
 
-            selected ??= method;
-            if (JsonAccess.Bool(method, "is_default") == true || JsonAccess.Bool(method, "default") == true)
+            var candidate = JsonAccess.At(method, "payment_method") ?? method;
+            selected ??= candidate;
+            var candidateId = FirstNonEmpty(JsonAccess.String(candidate, "id"), JsonAccess.String(method, "id"));
+            if ((!string.IsNullOrWhiteSpace(defaultId) && candidateId == defaultId) ||
+                JsonAccess.Bool(candidate, "is_default") == true ||
+                JsonAccess.Bool(method, "is_default") == true ||
+                JsonAccess.Bool(candidate, "default") == true ||
+                JsonAccess.Bool(method, "default") == true)
             {
-                selected = method;
+                selected = candidate;
                 break;
             }
         }
@@ -207,7 +216,23 @@ internal static partial class SubscriptionNormalizer
         }
 
         var value = selected.Value;
-        var card = JsonAccess.At(value, "card") ?? value;
+        var cardElement = JsonAccess.At(value, "card");
+        var card = cardElement ?? value;
+        var paymentType = JsonAccess.String(value, "type");
+        var hasCard = cardElement is not null ||
+                      paymentType?.Equals("card", StringComparison.OrdinalIgnoreCase) == true ||
+                      JsonAccess.String(card, "last4") is not null;
+        if (!hasCard)
+        {
+            return new PaymentSummary
+            {
+                Kind = PaymentKind.Unknown,
+                Label = string.IsNullOrWhiteSpace(paymentType)
+                    ? "未返回支付方式"
+                    : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(paymentType.Replace('_', ' ')),
+            };
+        }
+
         var brand = FirstNonEmpty(JsonAccess.String(card, "brand"), JsonAccess.String(value, "brand"));
         var first6 = DigitsOrNull(FirstNonEmpty(
             JsonAccess.String(card, "first6"),
@@ -227,11 +252,13 @@ internal static partial class SubscriptionNormalizer
             Last4 = last4,
             ExpMonth = ToInt(JsonAccess.Int64(card, "exp_month")),
             ExpYear = ToInt(JsonAccess.Int64(card, "exp_year")),
-            IsDefault = JsonAccess.Bool(value, "is_default") == true || JsonAccess.Bool(value, "default") == true,
+            IsDefault = (!string.IsNullOrWhiteSpace(defaultId) && JsonAccess.String(value, "id") == defaultId) ||
+                        JsonAccess.Bool(value, "is_default") == true ||
+                        JsonAccess.Bool(value, "default") == true,
         };
     }
 
-    private static IReadOnlyList<BillingRecord> NormalizeInvoices(JsonDocument? invoiceDocument)
+    private static BillingRecord[] NormalizeInvoices(JsonDocument? invoiceDocument)
     {
         if (invoiceDocument is null)
         {
@@ -254,13 +281,14 @@ internal static partial class SubscriptionNormalizer
                 continue;
             }
 
+            var currency = JsonAccess.String(item, "currency")?.ToUpperInvariant();
             var amount = FirstDecimal(
                 JsonAccess.Decimal(item, "amount_paid"),
                 JsonAccess.Decimal(item, "total"),
                 JsonAccess.Decimal(item, "amount_due"));
             if (amount is { } minorAmount)
             {
-                amount = minorAmount / 100m;
+                amount = CurrencyRules.FromMinorUnits(minorAmount, currency);
             }
             else
             {
@@ -285,7 +313,7 @@ internal static partial class SubscriptionNormalizer
                     JsonAccess.DateTime(item, "paid_at"),
                     JsonAccess.DateTime(item, "period_start")),
                 Amount = amount,
-                Currency = JsonAccess.String(item, "currency")?.ToUpperInvariant(),
+                Currency = currency,
                 Status = FirstNonEmpty(
                     JsonAccess.String(item, "status"),
                     JsonAccess.Bool(item, "paid") == true ? "paid" : null,
@@ -304,7 +332,7 @@ internal static partial class SubscriptionNormalizer
             .ToArray();
     }
 
-    private static IReadOnlyList<QuotaWindow> NormalizeUsage(JsonDocument? usageDocument)
+    private static QuotaWindow[] NormalizeUsage(JsonDocument? usageDocument)
     {
         if (usageDocument is null)
         {
@@ -344,7 +372,7 @@ internal static partial class SubscriptionNormalizer
     }
 
     private static void AddWindow(
-        ICollection<QuotaWindow> windows,
+        List<QuotaWindow> windows,
         string id,
         string name,
         JsonElement? element,
@@ -380,25 +408,26 @@ internal static partial class SubscriptionNormalizer
 
     private static (string Name, PlanVisual Visual) NormalizePlan(string raw)
     {
-        var compact = NonAlphaNumericRegex().Replace(raw.ToLowerInvariant(), string.Empty);
-        if (compact.Contains("prolite", StringComparison.Ordinal) ||
-            compact.Contains("pro5x", StringComparison.Ordinal) ||
-            compact.Contains("pro5", StringComparison.Ordinal))
+        var compact = NonAlphaNumericRegex().Replace(raw.ToUpperInvariant(), string.Empty);
+        if (compact.Contains("PROLITE", StringComparison.Ordinal) ||
+            compact.Contains("PRO5X", StringComparison.Ordinal) ||
+            compact.Contains("PRO5", StringComparison.Ordinal))
         {
             return ("Pro 5X", PlanVisual.Pro5X);
         }
 
-        if (compact.Contains("pro", StringComparison.Ordinal))
+        if (compact is "PRO" or "CHATGPTPRO" or "CHATGPTPROPLAN" or "PRO20" or "PRO20X" ||
+            compact.StartsWith("CHATGPTPRO20", StringComparison.Ordinal))
         {
             return ("Pro 20X", PlanVisual.Pro20X);
         }
 
-        if (compact.Contains("plus", StringComparison.Ordinal))
+        if (compact.Contains("PLUS", StringComparison.Ordinal))
         {
             return ("Plus", PlanVisual.Plus);
         }
 
-        if (compact.Contains("free", StringComparison.Ordinal) || compact.Contains("notpurchased", StringComparison.Ordinal))
+        if (compact.Contains("FREE", StringComparison.Ordinal) || compact.Contains("NOTPURCHASED", StringComparison.Ordinal))
         {
             return ("Free", PlanVisual.Free);
         }
@@ -406,7 +435,7 @@ internal static partial class SubscriptionNormalizer
         return (CultureInfo.InvariantCulture.TextInfo.ToTitleCase(raw.Replace('_', ' ')), PlanVisual.Other);
     }
 
-    private static IReadOnlyList<string> BuildWarnings(
+    private static List<string> BuildWarnings(
         SubscriptionSummary summary,
         PaymentSummary payment,
         IReadOnlyList<ProbeStatus> probes)
@@ -549,11 +578,11 @@ internal static partial class SubscriptionNormalizer
             return null;
         }
 
-        return brand.ToLowerInvariant() switch
+        return brand.ToUpperInvariant() switch
         {
-            "visa" => "VISA",
-            "mastercard" or "master_card" or "master card" => "Mastercard",
-            "amex" or "american_express" => "American Express",
+            "VISA" => "VISA",
+            "MASTERCARD" or "MASTER_CARD" or "MASTER CARD" => "Mastercard",
+            "AMEX" or "AMERICAN_EXPRESS" => "American Express",
             _ => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(brand.Replace('_', ' ')),
         };
     }
@@ -563,9 +592,9 @@ internal static partial class SubscriptionNormalizer
 
     private static int? ToInt(long? value) => value is >= int.MinValue and <= int.MaxValue ? (int)value.Value : null;
 
-    private static string? SafeHttpsUrl(string? value) =>
+    private static Uri? SafeHttpsUrl(string? value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps
-            ? uri.AbsoluteUri
+            ? uri
             : null;
 
     private static T? FirstValue<T>(params T?[] values) where T : struct =>
@@ -578,6 +607,6 @@ internal static partial class SubscriptionNormalizer
     private static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
-    [GeneratedRegex("[^a-z0-9]+", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("[^A-Z0-9]+", RegexOptions.CultureInvariant)]
     private static partial Regex NonAlphaNumericRegex();
 }

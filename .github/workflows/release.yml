@@ -11,8 +11,8 @@ jobs:
   windows-installer:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
       - name: Install NSIS
@@ -34,4 +34,5 @@ jobs:
             "release/SubscriptionLens-v$version-windows-x64-setup.exe.sha256" `
             --title "订阅镜 v$version" `
             --generate-notes `
+            --latest `
             --verify-tag

@@ -93,7 +93,7 @@ public sealed record BillingRecord
     public string? Currency { get; init; }
     public string Status { get; init; } = "未知";
     public string Product { get; init; } = "ChatGPT 订阅";
-    public string? InvoiceUrl { get; init; }
+    public Uri? InvoiceUrl { get; init; }
 }
 
 public sealed record QuotaWindow
@@ -152,6 +152,10 @@ internal sealed record FetchOutcome(
 
 public sealed class LensException : Exception
 {
+    public LensException()
+    {
+    }
+
     public LensException(string message) : base(message)
     {
     }

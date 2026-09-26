@@ -14,6 +14,9 @@ if ($VersionFile -ne $Version) {
 
 $PublishPath = Join-Path $RepoRoot 'artifacts\publish'
 $ReleasePath = Join-Path $RepoRoot 'release'
+if (Test-Path -LiteralPath $PublishPath) {
+    Remove-Item -LiteralPath $PublishPath -Recurse -Force
+}
 New-Item -ItemType Directory -Force -Path $PublishPath, $ReleasePath | Out-Null
 
 dotnet build (Join-Path $RepoRoot 'SubscriptionLens.sln') -c Release -p:Version=$Version
@@ -31,6 +34,20 @@ dotnet publish (Join-Path $RepoRoot 'src\SubscriptionLens.App\SubscriptionLens.A
     -p:FileVersion="$Version.0" `
     -o $PublishPath
 if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
+
+$DotnetRoot = Split-Path -Parent (Get-Command dotnet).Source
+$DotnetNoticeCandidates = @(
+    (Join-Path $DotnetRoot 'ThirdPartyNotices.txt'),
+    (Join-Path $env:ProgramFiles 'dotnet\ThirdPartyNotices.txt')
+) | Select-Object -Unique
+$DotnetLicenseCandidates = @(
+    (Join-Path $DotnetRoot 'LICENSE.txt'),
+    (Join-Path $env:ProgramFiles 'dotnet\LICENSE.txt')
+) | Select-Object -Unique
+$DotnetNotices = $DotnetNoticeCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+$DotnetLicense = $DotnetLicenseCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if ($DotnetNotices) { Copy-Item -LiteralPath $DotnetNotices -Destination (Join-Path $PublishPath 'DOTNET-THIRD-PARTY-NOTICES.txt') -Force }
+if ($DotnetLicense) { Copy-Item -LiteralPath $DotnetLicense -Destination (Join-Path $PublishPath 'DOTNET-LICENSE.txt') -Force }
 
 $Nsis = 'C:\Program Files (x86)\NSIS\makensis.exe'
 if (-not (Test-Path -LiteralPath $Nsis)) {
