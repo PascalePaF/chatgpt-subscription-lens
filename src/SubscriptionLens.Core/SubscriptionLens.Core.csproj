@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>SubscriptionLens.Core</AssemblyName>
+    <RootNamespace>SubscriptionLens.Core</RootNamespace>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SubscriptionLens.Tests" />
+  </ItemGroup>
+</Project>

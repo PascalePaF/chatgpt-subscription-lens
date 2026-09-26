@@ -1,34 +1,21 @@
 # 贡献指南
 
-感谢参与订阅镜。项目优先级依次是：不泄露凭证、只读、结果不误导、原生桌面体验、可复现构建。
+欢迎提交兼容性修复、测试、无障碍改进和文档补充。
 
-## 本地检查
+## 基本要求
+
+- 不提交真实 Session、Token、Cookie、账户响应或账单；
+- 网络范围保持 `chatgpt.com:443`、GET-only、无重定向；
+- 不加入恢复购买、取消、退款、绑卡、代充或代理转发；
+- 未公开字段必须有捕获或多源证据，并提供脱敏测试夹具；
+- 缺失值必须显示未知，不得用套餐宣传值冒充实时值；
+- UI 不引入 WebView，也不加入页面级滚动。
+
+## 提交前
 
 ```powershell
-cargo fmt --manifest-path native/Cargo.toml -- --check
-cargo test --manifest-path native/Cargo.toml
-cargo clippy --manifest-path native/Cargo.toml --all-targets -- -D warnings
-cargo build --release --locked --manifest-path native/Cargo.toml
+dotnet build .\SubscriptionLens.sln -c Release
+dotnet run --project .\tests\SubscriptionLens.Tests\SubscriptionLens.Tests.csproj -c Release --no-build
 ```
 
-制作安装包还需要 NSIS 3：
-
-```powershell
-New-Item -ItemType Directory -Force release | Out-Null
-makensis /INPUTCHARSET UTF8 /DVERSION=1.1.2 installer/SubscriptionLens.nsi
-```
-
-## 提交要求
-
-- 不得提交真实 Token、Session JSON、Cookie、邮箱或账单。
-- 测试夹具必须完全虚构，JWT 只能使用不可登录的合成数据。
-- 新增网络请求必须是读取类、固定 HTTPS 目标，并更新 `docs/RESEARCH.md` 和隐私说明。
-- 不接受购买、退款、取消/恢复续费、收据转移、风控规避或批量账号查询功能。
-- 对内部响应结构的兼容改动应同时添加单元测试。
-- 界面不能把“端点不可用”显示成“免费/无历史”。
-- 不重新引入 WebView、远程网页、CDN 资源或前端脚本运行时。
-- 原生界面必须保持固定单屏，不新增页面级滚动区域。
-
-## Commit 建议
-
-使用清晰的 Conventional Commits，例如 `feat: ...`、`fix: ...`、`docs: ...`、`test: ...`。
+PR 请说明：变化范围、验证方式、是否涉及凭证或网络边界、脱敏夹具来源。

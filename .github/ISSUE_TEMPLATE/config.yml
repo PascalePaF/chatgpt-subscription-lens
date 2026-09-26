@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 私密安全报告
+    url: https://github.com/PascalePaF/chatgpt-subscription-lens/security/advisories/new
+    about: 漏洞或可能暴露凭证的问题请从这里私密报告。

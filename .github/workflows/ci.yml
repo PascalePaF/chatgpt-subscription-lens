@@ -1,4 +1,4 @@
-name: CI
+name: ci
 
 on:
   push:
@@ -9,36 +9,20 @@ permissions:
   contents: read
 
 jobs:
-  validate:
+  windows:
     runs-on: windows-latest
-    timeout-minutes: 30
-
     steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          node-version: 22
-          cache: npm
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+          dotnet-version: 8.0.x
+      - name: Build with warnings as errors
+        run: dotnet build SubscriptionLens.sln -c Release
+      - name: Run core and network-contract tests
+        run: dotnet run --project tests/SubscriptionLens.Tests/SubscriptionLens.Tests.csproj -c Release --no-build
+      - name: Publish self-contained desktop executable
+        run: dotnet publish src/SubscriptionLens.App/SubscriptionLens.App.csproj -c Release -r win-x64 --self-contained true -o artifacts/publish
+      - uses: actions/upload-artifact@v4
         with:
-          components: rustfmt, clippy
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-
-      - name: Check Rust formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-
-      - name: Run Rust tests
-        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
-
-      - name: Run Rust lints
-        run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+          name: SubscriptionLens-win-x64
+          path: artifacts/publish/SubscriptionLens.exe

@@ -1,84 +1,37 @@
-name: Release Windows installer
+name: release
 
 on:
   push:
-    tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing version tag to publish
-        required: true
-        default: v1.1.2
+    tags: ['v*']
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  windows-installer:
     runs-on: windows-latest
-    timeout-minutes: 40
-    env:
-      GH_TOKEN: ${{ github.token }}
-
     steps:
-      - name: Resolve tag
-        id: version
-        shell: pwsh
-        run: |
-          $tag = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.tag }}" } else { "${{ github.ref_name }}" }
-          "tag=$tag" >> $env:GITHUB_OUTPUT
-          "version=$($tag.TrimStart('v'))" >> $env:GITHUB_OUTPUT
-
-      - name: Check out source
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          ref: ${{ steps.version.outputs.tag }}
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Test before packaging
+          dotnet-version: 8.0.x
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+      - name: Verify tag and build installer
         shell: pwsh
         run: |
-          cargo fmt --manifest-path native/Cargo.toml -- --check
-          cargo test --manifest-path native/Cargo.toml
-          cargo clippy --manifest-path native/Cargo.toml --all-targets -- -D warnings
-
-      - name: Build native Windows executable
-        run: cargo build --release --locked --manifest-path native/Cargo.toml
-
-      - name: Build Windows NSIS installer
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          if ((Get-Content VERSION -Raw).Trim() -ne $version) { throw 'Tag and VERSION differ.' }
+          ./scripts/build-release.ps1 -Version $version
+      - name: Publish GitHub release
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          choco install nsis --yes --no-progress
-          New-Item -ItemType Directory -Force -Path release | Out-Null
-          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /INPUTCHARSET UTF8 "/DVERSION=${{ steps.version.outputs.version }}" installer\SubscriptionLens.nsi
-
-      - name: Create release archives and checksums
-        id: package
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $source = Get-Item -LiteralPath (Join-Path $PWD "release\SubscriptionLens-v$version-windows-x64-setup.exe")
-          if (-not $source) { throw "NSIS installer was not produced" }
-          $installer = $source.FullName
-          $files = @($installer)
-          $lines = foreach ($file in $files) {
-            $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $([IO.Path]::GetFileName($file))"
-          }
-          $lines | Set-Content -LiteralPath "SHA256SUMS.txt" -Encoding utf8NoBOM
-          "installer=$installer" >> $env:GITHUB_OUTPUT
-
-      - name: Publish GitHub Release
-        shell: pwsh
-        run: |
-          $tag = "${{ steps.version.outputs.tag }}"
-          gh release view $tag 2>$null | Out-Null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "订阅镜 $tag" --notes-file RELEASE_NOTES.md
-          }
-          gh release upload $tag "${{ steps.package.outputs.installer }}" "SHA256SUMS.txt" --clobber
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          gh release create "v$version" `
+            "release/SubscriptionLens-v$version-windows-x64-setup.exe" `
+            "release/SubscriptionLens-v$version-windows-x64-setup.exe.sha256" `
+            --title "订阅镜 v$version" `
+            --generate-notes `
+            --verify-tag

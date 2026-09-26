@@ -1,0 +1,278 @@
+<Window x:Class="SubscriptionLens.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="订阅镜 · ChatGPT 订阅查询"
+        Width="1160" Height="720"
+        MinWidth="1160" MaxWidth="1160"
+        MinHeight="720" MaxHeight="720"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize"
+        Background="#F5F2EC"
+        FontFamily="Segoe UI, Microsoft YaHei UI">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="64" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="30" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#F9F7F2" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+            <Grid Margin="28,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="36" Height="36" CornerRadius="10" Background="{StaticResource InkBrush}" VerticalAlignment="Center">
+                    <TextBlock Text="镜" Foreground="White" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="订阅镜" FontWeight="SemiBold" FontSize="16" />
+                    <TextBlock Text="S U B S C R I P T I O N   L E N S" Foreground="{StaticResource MutedBrush}" FontSize="8" />
+                </StackPanel>
+                <Border Grid.Column="2" Padding="12,6" CornerRadius="14" Background="#E9F3EC" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="7" Height="7" Fill="#4A9C6B" Margin="0,0,7,0" VerticalAlignment="Center" />
+                        <TextBlock Text="本机处理 · 只读" Foreground="#2F6F49" FontSize="12" FontWeight="SemiBold" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid x:Name="ConnectPanel" Margin="34,28,34,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.82*" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="1.18*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="8,0,10,0">
+                    <TextBlock Text="连接你自己的\nChatGPT 账户" FontFamily="Georgia, Microsoft YaHei UI" FontSize="39" LineHeight="49" />
+                    <TextBlock Margin="0,20,0,0" TextWrapping="Wrap" Foreground="{StaticResource MutedBrush}" FontSize="14" LineHeight="23"
+                               Text="粘贴完整会话凭证，本机直接向 chatgpt.com 发起只读查询。凭证不写入磁盘，不发送到任何中转站。" />
+
+                    <StackPanel Margin="0,34,0,0">
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Width="24" Height="24" CornerRadius="12" Background="#EDE7DD" VerticalAlignment="Top">
+                                <TextBlock Text="1" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="先做完整性检查" FontWeight="SemiBold" />
+                                <TextBlock Text="缺字段、JWT 损坏或已过期时不会发起订阅查询。" Margin="0,3,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Width="24" Height="24" CornerRadius="12" Background="#EDE7DD" VerticalAlignment="Top">
+                                <TextBlock Text="2" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="只调用固定 GET 接口" FontWeight="SemiBold" />
+                                <TextBlock Text="不恢复购买、不取消订阅、不创建支付或账单会话。" Margin="0,3,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="32" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Border Width="24" Height="24" CornerRadius="12" Background="#EDE7DD" VerticalAlignment="Top">
+                                <TextBlock Text="3" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="结果不落盘" FontWeight="SemiBold" />
+                                <TextBlock Text="关闭或清空后即从当前窗口移除，不建立本地账号库。" Margin="0,3,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="28" VerticalAlignment="Center">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="会话凭证" FontSize="23" FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="1" Margin="0,7,0,17" Foreground="{StaticResource MutedBrush}" FontSize="12"
+                                   Text="支持完整 Session JSON、Codex auth.json、Access Token 或 Session Token。" />
+
+                        <Grid Grid.Row="2">
+                            <TextBox x:Name="CredentialBox"
+                                     Height="82" MinHeight="82" MaxHeight="82"
+                                     Padding="12,10" FontFamily="Cascadia Mono, Consolas" FontSize="11"
+                                     AcceptsReturn="True" AcceptsTab="False" TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                     BorderBrush="#D8D2C8" BorderThickness="1"
+                                     Background="#FBFAF7"
+                                     TextChanged="CredentialBox_TextChanged"
+                                     ToolTip="输入区固定为三行高度，内容再长也不会撑大窗口。" />
+                            <TextBlock x:Name="CredentialPlaceholder" IsHitTestVisible="False" Margin="13,11,13,0" VerticalAlignment="Top"
+                                       Foreground="#A29B92" FontSize="12" Text="在此粘贴凭证；窗口只显示约三行…" />
+                        </Grid>
+
+                        <Border Grid.Row="3" x:Name="ValidationBorder" Margin="0,12,0,0" Padding="11,9" CornerRadius="8" Background="#F1EEE8">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <Ellipse x:Name="ValidationDot" Width="8" Height="8" Fill="#9B958C" VerticalAlignment="Top" Margin="0,4,0,0" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock x:Name="ValidationTitle" Text="等待输入" FontSize="12" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="ValidationDetail" Text="粘贴后会立即检查，不会自动查询。" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <CheckBox Grid.Row="4" x:Name="ConsentCheckBox" Margin="0,16,0,0" VerticalContentAlignment="Center"
+                                  FontSize="12" Foreground="{StaticResource MutedBrush}"
+                                  Content="我确认这是自己的账户，并理解未公开接口可能变化。"
+                                  Checked="ConsentCheckBox_Changed" Unchecked="ConsentCheckBox_Changed" />
+
+                        <Grid Grid.Row="5" Margin="0,19,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <Button x:Name="ClearButton" Style="{StaticResource GhostButton}" Padding="16,10" Content="清空" Click="ClearButton_Click" />
+                            <Button Grid.Column="2" x:Name="QueryButton" Style="{StaticResource PrimaryButton}" MinWidth="142" Content="查询订阅  →" Click="QueryButton_Click" IsEnabled="False" />
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid x:Name="ResultPanel" Visibility="Collapsed" Margin="28,18,28,15">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="52" />
+                    <RowDefinition Height="220" />
+                    <RowDefinition Height="14" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="ResultEmail" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ResultMeta" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <Button x:Name="NewQueryButton" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource GhostButton}" Padding="16,8" Content="查询另一个账户" Click="NewQueryButton_Click" />
+                </Grid>
+
+                <Border x:Name="PlanHeroBorder" Grid.Row="1" CornerRadius="18" Padding="28" Background="#242321">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.08*" />
+                            <ColumnDefinition Width="0.92*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="PlanStateText" Text="当前套餐" Foreground="#DCC890" FontSize="12" FontWeight="SemiBold" />
+                            <TextBlock x:Name="PlanNameText" Text="Pro 20X" Foreground="#FFF9E9" FontFamily="Georgia, Microsoft YaHei UI" FontSize="42" Margin="0,6,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <StackPanel Width="145">
+                                    <TextBlock Text="剩余时间" Foreground="#AFAAA2" FontSize="10" />
+                                    <TextBlock x:Name="RemainingText" Text="—" Foreground="White" FontSize="16" FontWeight="SemiBold" Margin="0,3,0,0" />
+                                </StackPanel>
+                                <StackPanel Width="190">
+                                    <TextBlock Text="到期时间" Foreground="#AFAAA2" FontSize="10" />
+                                    <TextBlock x:Name="ExpiryText" Text="—" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="续费 / 币种" Foreground="#AFAAA2" FontSize="10" />
+                                    <TextBlock x:Name="RenewalText" Text="—" Foreground="White" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border Grid.Column="1" x:Name="PaymentCard" Width="360" Height="164" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                CornerRadius="16" BorderBrush="#494845" BorderThickness="1">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#111210" Offset="0" />
+                                    <GradientStop Color="#252622" Offset="0.56" />
+                                    <GradientStop Color="#0D0E0D" Offset="1" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Grid Margin="21,17">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <TextBlock Text="P A Y M E N T   /   S T O R E" Foreground="#8E9189" FontSize="8" />
+                                <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                                    <TextBlock x:Name="PaymentLabelText" Text="未返回支付方式" Foreground="White" FontSize="18" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="PaymentNumberText" Text="—" Foreground="#BFC1BA" FontFamily="Cascadia Mono, Consolas" FontSize="13" Margin="0,6,0,0" />
+                                </StackPanel>
+                                <TextBlock Grid.Row="2" x:Name="PaymentMetaText" Text="只显示接口实际返回的脱敏信息" Foreground="#777A73" FontSize="10" />
+
+                                <Grid x:Name="PaymentIconHost" Width="74" Height="74" HorizontalAlignment="Right" VerticalAlignment="Center" Grid.RowSpan="3">
+                                    <Border CornerRadius="18" Background="#242522" BorderBrush="#454741" BorderThickness="1">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="18" ShadowDepth="5" Opacity="0.35" />
+                                        </Border.Effect>
+                                    </Border>
+                                    <TextBlock x:Name="GenericPaymentIcon" Text="◈" Foreground="#E8E7E0" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Grid x:Name="VisaIcon" Visibility="Collapsed">
+                                        <TextBlock Text="VISA" Foreground="#F2EEE2" FontSize="20" FontWeight="ExtraBold" FontStyle="Italic" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Grid x:Name="MastercardIcon" Visibility="Collapsed">
+                                        <Ellipse Width="30" Height="30" Fill="#D86145" HorizontalAlignment="Left" Margin="11,0,0,0" />
+                                        <Ellipse Width="30" Height="30" Fill="#D7A846" HorizontalAlignment="Right" Margin="0,0,11,0" Opacity="0.9" />
+                                    </Grid>
+                                    <Grid x:Name="AppleIcon" Visibility="Collapsed">
+                                        <TextBlock Text="A" Foreground="White" FontFamily="Georgia" FontSize="31" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Grid x:Name="GoogleIcon" Visibility="Collapsed">
+                                        <Polygon Points="20,14 57,37 20,60" Fill="#E9E9E3" />
+                                        <Polygon Points="20,14 40,37 20,60" Fill="#6FBDAE" />
+                                        <Polygon Points="40,37 57,37 48,43" Fill="#E0A34B" />
+                                    </Grid>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="1.08*" /><ColumnDefinition Width="14" /><ColumnDefinition Width="0.92*" /></Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Style="{StaticResource CardBorder}" Padding="20,17">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="1" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                            <Grid>
+                                <TextBlock Text="账户与额度" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock x:Name="AccountMaskedText" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}" FontFamily="Cascadia Mono, Consolas" FontSize="10" />
+                            </Grid>
+                            <StackPanel x:Name="CodexQuotaPanel" Grid.Row="1" Margin="0,12,0,11" />
+                            <Border Grid.Row="2" Background="{StaticResource LineBrush}" />
+                            <UniformGrid x:Name="FeatureQuotaPanel" Grid.Row="3" Rows="2" Columns="2" Margin="0,10,0,0" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="20,17">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid>
+                                <TextBlock Text="账单记录" FontSize="16" FontWeight="SemiBold" />
+                                <TextBlock x:Name="BillingCountText" HorizontalAlignment="Right" Foreground="{StaticResource MutedBrush}" FontSize="10" />
+                            </Grid>
+                            <StackPanel x:Name="BillingPanel" Grid.Row="1" Margin="0,11,0,0" />
+                            <Border Grid.Row="2" x:Name="WarningBorder" Background="#FBF3E6" CornerRadius="7" Padding="9,7" Margin="0,8,0,0">
+                                <TextBlock x:Name="WarningText" Foreground="#875D2D" FontSize="10" TextTrimming="CharacterEllipsis" />
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <Border x:Name="BusyOverlay" Visibility="Collapsed" Background="#B3F5F2EC">
+                <Border Width="390" Padding="28" Background="White" CornerRadius="16" BorderBrush="{StaticResource LineBrush}" BorderThickness="1"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel>
+                        <ProgressBar Height="4" IsIndeterminate="True" Foreground="{StaticResource AccentBrush}" Background="#EEEAE3" />
+                        <TextBlock Text="正在查询" FontSize="20" FontWeight="SemiBold" Margin="0,20,0,0" HorizontalAlignment="Center" />
+                        <TextBlock x:Name="BusyStatusText" Text="正在检查凭证完整性…" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,7,0,0" HorizontalAlignment="Center" />
+                        <Button Style="{StaticResource GhostButton}" Content="取消" Padding="15,7" Margin="0,18,0,0" HorizontalAlignment="Center" Click="CancelButton_Click" />
+                    </StackPanel>
+                </Border>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="28,0">
+            <TextBlock Text="凭证仅驻留于本次进程内存" Foreground="#8E8880" FontSize="9" VerticalAlignment="Center" />
+            <TextBlock x:Name="VersionText" HorizontalAlignment="Right" Foreground="#8E8880" FontSize="9" VerticalAlignment="Center" />
+        </Grid>
+    </Grid>
+</Window>

@@ -1,96 +1,96 @@
 # 订阅镜（Subscription Lens）
 
-一个真正原生、本地运行、只读、可审计的 Windows ChatGPT 订阅查询工具。把自己的 Session JSON、Access Token、Codex `auth.json` 内容或 session token 粘贴到程序中，即可在本机整理当前套餐、邮箱、订阅周期、剩余时间、支付方式、账单记录和可验证的额度信息。
+订阅镜是一款 **Windows 原生、本机运行、只读、开源** 的 ChatGPT 账户与订阅检查工具。它是 WPF 桌面应用，不包含 WebView，不启动本地网页服务器，也不会把凭证交给第三方查询站。
 
-> 当前版本：**v1.1.2**。本项目与 OpenAI、Apple、Google、Visa、Mastercard 没有关联，也不是官方产品。
+> 当前稳定开发线：`1.0.x`。项目在 2026-09-26 完成推倒重建；旧版代码仍保留在 Git 历史中，但不再作为现行实现。
 
-## 原生界面预览
+## 能看到什么
 
-以下画面由 Windows 原生程序使用本地假数据直接生成，不含真实凭证或账户信息。
+- 当前套餐、是否有效、到期时间、剩余时间、是否续费、支付币种；
+- 当前购买来源：ChatGPT 网页、Apple App Store 或 Google Play；
+- 网页银行卡品牌与上游实际返回的脱敏位数；
+- ChatGPT 网页端返回的最近账单；
+- Codex 短周期、长周期及额外窗口的已用/剩余比例与重置时间；
+- Chat、网页端 Pro、生图、Deep Research 的独立状态槽位。
 
-![原生 Session 完整性检查](docs/screenshots/v1.1.1-native-query.png)
+最后四项中，只有 Codex 目前有可复现的独立只读额度接口。ChatGPT 网页端的生图和 Deep Research 剩余次数只会伴随真实会话事件出现；订阅镜不会为了“查额度”而发送消息或消耗次数，因此这些位置会诚实显示“当前接口未返回”。
 
-![原生订阅卡片正反面](docs/screenshots/v1.1.1-native-result.png)
+## 不能承诺什么
 
-## V1.1.2 的桌面形态
+- OpenAI 没有公开面向第三方的“个人 ChatGPT 订阅/账单 API”。除 Codex 额度外，本项目使用的 ChatGPT Web 账户端点都属于未公开接口，可能随时变更。
+- 仅凭 ChatGPT Session 无法调用 Apple App Store Server API 或 Google Play Developer API 查询用户的完整商店历史。订阅镜只显示 ChatGPT 自身实际返回的当前购买来源。
+- 支付方式接口通常只返回品牌、尾号和有效期，不保证返回卡号前 6 位。缺失时不会调用 BIN 服务、不会上传尾号、不会猜测。
+- 本项目不恢复购买、不代充、不共享账号、不取消订阅、不退款、不创建 Stripe 客户门户，也不会把个人订阅包装成 API 服务。
 
-- 纯 Rust + eframe/egui 原生窗口，不加载 HTML、CSS、JavaScript 或 WebView2。
-- 固定 1280 × 800 单屏布局，没有页面级纵向滚动。
-- 查询页使用不可被长文本撑开的三行 Session 输入视口；超出内容只在框内滚动，查询按钮始终可见。
-- 查询成功或闲置 5 分钟后，Session 会自动从内存清除。
-- 查询结果采用同屏“卡片正面 + 卡片背面”：正面展示套餐、剩余时间、到期时间和支付方式；背面展示账户、五类额度槽位和最近账单。
-- 套餐配色固定：Pro 20X 黑金、Pro 5X 蓝色、Plus 绿色、Free 灰色。
-- Visa、Mastercard、Apple App Store、Google Play 使用随程序内嵌的本地 3D 图标，不联网加载图片。
-- 没有“数据来源”面板；内部端点失败时只在对应字段显示“未返回”，不会伪造结果。
+完整证据与取舍见 [调研报告](docs/RESEARCH.md)。
 
-## 查询能力
+## 安装
 
-- 查询前检查 JSON/JWT 结构、邮箱、用户 ID、ChatGPT 账户 ID 和令牌有效期；残缺输入不能进入订阅查询。
-- Session Token 会先向 `chatgpt.com/api/auth/session` 换取完整会话；远端仍缺字段时立即停止。
-- 显示邮箱、套餐、订阅状态、开始/结束时间、剩余时间、续费状态、购买平台、币种与最近金额。
-- 显示 ChatGPT 网页账单端点实际返回的记录，以及账户端点能够确认的最近 Apple/Google 移动订阅记录。
-- 网页银行卡仅显示上游实际返回的 Visa/Mastercard 品牌、前 6 位和尾号 4 位；永远不接收、保存或重建完整卡号。
-- 背面固定显示 Codex、Chat、网页端 Pro、生图与 Deep Research 五个额度槽位。只有本次响应能明确匹配的数据才显示数值，其余显示“未返回”。
-- 没有购买、取消、恢复续费、退款或修改支付方式的代码。
+1. 打开 [GitHub Releases](https://github.com/PascalePaF/chatgpt-subscription-lens/releases/latest)。
+2. 下载 `SubscriptionLens-v1.0.1-windows-x64-setup.exe`（V1.0.1 发布后）以及同名 `.sha256`。
+3. 可选：用 PowerShell 核对哈希：
 
-## 重要边界
+   ```powershell
+   Get-FileHash .\SubscriptionLens-v1.0.1-windows-x64-setup.exe -Algorithm SHA256
+   ```
 
-OpenAI 没有发布“输入 ChatGPT session key 后查询个人完整订阅历史”的公开开发者 API。当前状态、计费周期、网页账单和额度来自 ChatGPT/Codex 客户端正在使用的内部只读端点，这些端点未来可能变化。
+4. 运行安装程序。默认安装目录：
 
-Apple 和 Google 管理各自商店中的完整购买历史。订阅镜只能展示 ChatGPT 账户返回的**最近可确认移动订阅**，不能保证列出 Apple/Google 的全部历史订单、退款和换号记录。完整记录请在 Apple/Google 购买历史中核对。详见[调查记录](docs/RESEARCH.md)。
+   ```text
+   %LOCALAPPDATA%\Programs\SubscriptionLens
+   ```
 
-## 下载、安装与卸载
+这是按当前 Windows 用户安装的桌面软件，带开始菜单快捷方式与标准卸载程序；不是绿色免安装包。应用为 x64 自包含版本，不要求用户另装 .NET。
 
-1. 从 [Releases](https://github.com/PascalePaF/chatgpt-subscription-lens/releases/latest) 下载 `SubscriptionLens-v1.1.2-windows-x64-setup.exe`。
-2. 双击安装程序。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\SubscriptionLens`，不需要管理员权限。
-3. 从开始菜单运行“订阅镜”。
-4. 需要移除时，在 Windows“设置 → 应用 → 已安装的应用”中卸载。
+## 获取凭证
 
-从 V1.1.0 升级时，安装程序会先移除旧的 `%LOCALAPPDATA%\订阅镜` 安装、旧快捷方式及旧版 WebView 缓存，避免两个版本并存。新安装目录只有原生 EXE、卸载程序、许可证和隐私说明。程序不安装服务、浏览器扩展或 WebView 运行数据。本项目暂未提供代码签名证书，因此 Windows 可能显示“未知发布者”；请从本仓库 Release 下载并核对 `SHA256SUMS.txt`。
+推荐顺序：
 
-## 安全获取查询凭证
+1. **完整 Session JSON**：登录自己的 `https://chatgpt.com/` 后，在同一浏览器配置中打开 `https://chatgpt.com/api/auth/session`，复制整个 JSON。
+2. **Codex `auth.json`**：使用官方 Codex 登录后，复制完整文件内容。此方式的 Access Token 必须仍在有效期内。
+3. **Access Token**：适合清楚令牌来源与风险的高级用户。
+4. **Session Token / Cookie**：应用先用固定 Cookie 名尝试访问官方 Session 端点；只有官方返回完整 Session 后才会继续。
 
-推荐使用完整 Session JSON：
+Session、Access Token 与 `auth.json` 都等同密码。不要发到 Issue、聊天群、截图或任何陌生网站。查询完成后，订阅镜会清空输入框；应用没有账户库、历史库或遥测模块。
 
-1. 在浏览器中登录自己的 `https://chatgpt.com`。
-2. 在同一个浏览器配置文件中打开 `https://chatgpt.com/api/auth/session`。
-3. 页面显示 JSON 后复制全部内容，粘贴到订阅镜。
-4. 不要把这段内容发给任何人，也不要截图或提交到 GitHub。
+## 界面原则
 
-也可以粘贴 Codex 本地 `auth.json` 的完整内容。更完整的说明见[使用指南](docs/USER_GUIDE.md)和[隐私说明](PRIVACY.md)。
+- 固定 1160 × 720 原生窗口，整个页面不滚动；
+- 输入框固定约三行高，再长的 JSON 也不会撑满窗口；
+- 套餐配色：Pro 20X 黑金、Pro 5X 蓝色、Plus 绿色、Free 灰色；
+- 左侧显示套餐与有效期，右侧为黑色支付/商店卡片；
+- 结果下半区同时容纳 Codex 额度、四类功能状态和账单记录；
+- 端点部分失败时保留其他已确认数据，并给出简短警告。
 
 ## 从源码构建
 
-环境要求：
-
-- Windows 10/11 x64；
-- Rust 1.92 或更新版本；
-- Microsoft C++ Build Tools；
-- NSIS 3（仅制作安装包时需要）。
+要求：Windows 10/11 x64、.NET 8 SDK、NSIS 3。
 
 ```powershell
-cargo fmt --manifest-path native/Cargo.toml -- --check
-cargo test --manifest-path native/Cargo.toml
-cargo clippy --manifest-path native/Cargo.toml --all-targets -- -D warnings
-cargo build --release --locked --manifest-path native/Cargo.toml
-
-New-Item -ItemType Directory -Force release | Out-Null
-makensis /INPUTCHARSET UTF8 /DVERSION=1.1.2 installer/SubscriptionLens.nsi
+dotnet build .\SubscriptionLens.sln -c Release
+dotnet run --project .\tests\SubscriptionLens.Tests\SubscriptionLens.Tests.csproj -c Release --no-build
+.\scripts\build-release.ps1 -Version 1.0.1
 ```
 
-生成的安装包位于 `release/SubscriptionLens-v1.1.2-windows-x64-setup.exe`。Release 只分发安装版，不提供绿色免安装包。
+构建输出：
 
-## 技术与安全设计
+- 自包含程序：`artifacts\publish\SubscriptionLens.exe`
+- 安装程序：`release\SubscriptionLens-v1.0.1-windows-x64-setup.exe`
+- 校验文件：同名 `.sha256`
 
-- eframe/egui + winit + OpenGL 原生绘制；没有浏览器内核和前端脚本运行时。
-- HTTPS-only、禁止重定向、30 秒超时、5 MiB 响应上限。
-- 所有请求 URL 都固定在 Rust 代码中，界面不能提交任意地址。
-- 原始输入与提取出的 Access Token 使用尽力而为的内存清零包装；不写日志、不写数据库。
-- 支付方式归一化只保留卡品牌、前 6 位、尾号 4 位和有效期。
-- Noto Sans CJK SC 字体和四枚 3D 支付图标均嵌入 EXE，界面资源不依赖 CDN。
+## 安全模型
 
-安全边界可从 [`upstream.rs`](native/src/upstream.rs)、[`credential.rs`](native/src/credential.rs)、[`normalize.rs`](native/src/normalize.rs) 与 [`ui.rs`](native/src/ui.rs) 开始审计。
+- 网络白名单只有 `https://chatgpt.com:443`；
+- 所有业务请求均为 `GET`；
+- 禁止 HTTP 重定向，避免 Authorization 头被转交；
+- 单请求 20 秒超时，响应体有 2 MiB/8 MiB 上限；
+- Session JSON 必须包含 `accessToken`、`user.email` 和可解析的 `expires`；
+- JWT 必须是三段式、带非 `none` 算法、`sub`、`exp`，且尚未过期；
+- 本地结构检查不等于密码学验签，最终授权仍由 `chatgpt.com` 判定；
+- 不记录原始响应、Cookie、Token、完整账户 ID或邮箱日志。
 
-## 许可证
+安全问题请阅读 [SECURITY.md](SECURITY.md)；隐私说明见 [PRIVACY.md](PRIVACY.md)。
 
-[MIT License](LICENSE)。第三方组件与字体见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。使用者必须只查询自己拥有或已获明确授权访问的账号，并自行承担内部端点变化和账号风控风险。
+## 开源许可
+
+MIT。详见 [LICENSE](LICENSE)。项目与 OpenAI、Apple、Google、Visa、Mastercard 无隶属或背书关系；产品名与商标归各自权利人所有。
