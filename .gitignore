@@ -1,16 +1,20 @@
-node_modules/
-dist/
-src-tauri/target/
-native/target/
-assets/fonts/noto-download/
-*.log
+# Build output
+bin/
+obj/
+artifacts/
+release/
+
+# IDE / OS
+.vs/
+.vscode/
+*.user
+*.suo
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
-release/*.exe
-release/*.zip
-release/*.msi
-release/*.sig
-release/
-subscription-lens-data/
+
+# Never store credentials or captured responses
+*.session.json
+*.auth.json
+captures/
+secrets/
+local-data/

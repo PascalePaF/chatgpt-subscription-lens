@@ -1,43 +1,51 @@
-name: Bug report
-description: 报告可复现问题（不要提交真实凭证）
-title: "[Bug]: "
+name: 兼容性或界面问题
+description: 报告脱敏后的查询、安装或界面问题
+title: "[Bug] "
 labels: [bug]
 body:
   - type: markdown
     attributes:
       value: |
-        请先删除所有 Session、Token、Cookie、邮箱、账号 ID 和账单信息。安全漏洞请使用私密安全报告。
+        **不要粘贴 Session、Token、Cookie、完整邮箱、账户 ID、银行卡或原始响应。**
+        安全漏洞请使用仓库的私密安全报告功能。
   - type: input
     id: version
     attributes:
       label: 版本
-      placeholder: v1.0.0
+      placeholder: 例如 1.0.1
     validations:
       required: true
   - type: dropdown
-    id: source
+    id: area
     attributes:
-      label: 出问题的数据源
+      label: 问题范围
       options:
-        - 启动/界面
-        - 凭证解析
-        - 账户与权益
-        - 订阅周期
-        - 网页账单
+        - 安装 / 升级 / 卸载
+        - 凭证本地检查
+        - Session 远端核验
+        - 订阅或套餐显示
         - Codex 额度
+        - 支付方式或账单
+        - 原生界面 / DPI / 无障碍
         - 其他
     validations:
       required: true
   - type: textarea
-    id: steps
+    id: description
     attributes:
-      label: 脱敏复现步骤
-      description: 不要粘贴任何真实凭证或个人信息。
+      label: 问题描述
+      description: 说明预期与实际行为；字段和值必须脱敏。
     validations:
       required: true
   - type: textarea
-    id: expected
+    id: sanitized
     attributes:
-      label: 预期与实际结果
-    validations:
-      required: true
+      label: 脱敏状态信息
+      description: 只提供 HTTP 状态、缺失字段名和套餐类型；不要提供原始 JSON。
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: 安全确认
+      options:
+        - label: 我确认以上内容不含任何 Session、Token、Cookie、完整邮箱、账户 ID、银行卡或账单隐私。
+          required: true

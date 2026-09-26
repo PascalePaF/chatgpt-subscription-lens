@@ -1,0 +1,30 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SubscriptionLens.Core", "src\SubscriptionLens.Core\SubscriptionLens.Core.csproj", "{A01012BE-1D56-4DA6-9D45-152E93E6918B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SubscriptionLens.App", "src\SubscriptionLens.App\SubscriptionLens.App.csproj", "{AD866230-D36E-420A-850A-6E56F9B76EF1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SubscriptionLens.Tests", "tests\SubscriptionLens.Tests\SubscriptionLens.Tests.csproj", "{3D0643EA-5275-47B7-B520-067466332E17}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A01012BE-1D56-4DA6-9D45-152E93E6918B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A01012BE-1D56-4DA6-9D45-152E93E6918B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A01012BE-1D56-4DA6-9D45-152E93E6918B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A01012BE-1D56-4DA6-9D45-152E93E6918B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD866230-D36E-420A-850A-6E56F9B76EF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD866230-D36E-420A-850A-6E56F9B76EF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD866230-D36E-420A-850A-6E56F9B76EF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD866230-D36E-420A-850A-6E56F9B76EF1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D0643EA-5275-47B7-B520-067466332E17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D0643EA-5275-47B7-B520-067466332E17}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D0643EA-5275-47B7-B520-067466332E17}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D0643EA-5275-47B7-B520-067466332E17}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
