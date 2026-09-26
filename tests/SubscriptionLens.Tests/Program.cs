@@ -1,6 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Net;
+using System.Security.Cryptography;
 using SubscriptionLens.Core;
 
 namespace SubscriptionLens.Tests;
@@ -15,29 +18,46 @@ internal static class Program
         Run("empty credential is rejected", EmptyCredentialIsRejected);
         Run("short session is rejected", ShortSessionIsRejected);
         Run("valid access token is accepted", ValidAccessTokenIsAccepted);
+        Run("Bearer prefix is accepted", BearerPrefixIsAccepted);
         Run("expired access token is rejected", ExpiredAccessTokenIsRejected);
+        Run("future access token is rejected", FutureAccessTokenIsRejected);
+        Run("truncated JWT signature is rejected", TruncatedJwtSignatureIsRejected);
         Run("session JSON requires email", SessionJsonRequiresEmail);
         Run("complete session JSON is accepted", CompleteSessionJsonIsAccepted);
         Run("Codex auth JSON is accepted", CodexAuthJsonIsAccepted);
         Run("recognized cookie header is accepted", CookieHeaderIsAccepted);
         Run("cookie header drops unrelated cookies", CookieHeaderDropsUnrelatedCookies);
         Run("malformed JSON is rejected", MalformedJsonIsRejected);
+        Run("random credential input never escapes validation", RandomInputNeverEscapesValidation);
+        Run("out of range JWT timestamps are rejected", OutOfRangeJwtTimestampIsRejected);
         Run("array JSON paths work", ArrayJsonPathsWork);
         Run("preferred account is selected", PreferredAccountIsSelected);
         Run("paid account beats inactive fallback", PaidAccountBeatsInactiveFallback);
         Run("Pro maps to Pro 20X visual", ProMapsToPro20X);
         Run("Pro Lite maps to Pro 5X visual", ProLiteMapsToPro5X);
+        Run("unknown product name is not misclassified as Pro", UnknownProductIsNotPro);
         Run("iOS origin maps to App Store", IosOriginMapsToAppStore);
         Run("Google origin maps to Google Play", GoogleOriginMapsToGooglePlay);
         Run("card exposes only returned digits", CardUsesOnlyReturnedDigits);
         Run("card does not invent first six", CardDoesNotInventFirstSix);
+        Run("root default payment method is selected", RootDefaultPaymentMethodIsSelected);
+        Run("wrapped payment method is parsed", WrappedPaymentMethodIsParsed);
         Run("invoice minor units are normalized", InvoiceMinorUnitsAreNormalized);
+        Run("zero-decimal invoice currency is normalized", ZeroDecimalCurrencyIsNormalized);
+        Run("three-decimal invoice currency is normalized", ThreeDecimalCurrencyIsNormalized);
         Run("usage windows are parsed", UsageWindowsAreParsed);
         Run("feature quotas remain explicitly unknown", FeatureQuotasRemainUnknown);
         Run("account identifiers are masked", AccountIdentifiersAreMasked);
         Run("partial endpoint failure keeps useful result", PartialFailureKeepsUsefulResult);
         Run("query flow uses GET requests on chatgpt.com only", QueryFlowUsesGetRequestsOnly);
         Run("incomplete exchanged session stops before backend", IncompleteExchangeStopsBeforeBackend);
+        Run("HTTP 200 error envelope is not treated as success", ErrorEnvelopeIsNotSuccess);
+        Run("deactivated account payload is not treated as success", DeactivatedAccountIsNotSuccess);
+        Run("oversized optional response stays partial", OversizedOptionalResponseStaysPartial);
+        Run("caller cancellation is preserved", CallerCancellationIsPreserved);
+        Run("layout fits a normal work area", LayoutFitsNormalWorkArea);
+        Run("layout scales down for high DPI work area", LayoutScalesForHighDpi);
+        Run("invalid work area gets safe defaults", InvalidWorkAreaGetsDefaults);
 
         Console.WriteLine($"Subscription Lens tests: {_passed} passed, {_failed} failed.");
         return _failed == 0 ? 0 : 1;
@@ -54,11 +74,36 @@ internal static class Program
         Equal(CredentialKind.AccessToken, validation.Kind);
     }
 
+    private static void BearerPrefixIsAccepted()
+    {
+        var validation = CredentialParser.Validate($"Bearer {Token(DateTimeOffset.UtcNow.AddHours(1))}");
+        True(validation.IsValid);
+        Equal(CredentialKind.AccessToken, validation.Kind);
+    }
+
     private static void ExpiredAccessTokenIsRejected()
     {
         var validation = CredentialParser.Validate(Token(DateTimeOffset.UtcNow.AddHours(-1)));
         False(validation.IsValid);
         Contains("过期", validation.Detail);
+    }
+
+    private static void FutureAccessTokenIsRejected()
+    {
+        var validation = CredentialParser.Validate(Token(
+            DateTimeOffset.UtcNow.AddHours(2),
+            DateTimeOffset.UtcNow.AddMinutes(20)));
+        False(validation.IsValid);
+        Contains("尚未生效", validation.Detail);
+    }
+
+    private static void TruncatedJwtSignatureIsRejected()
+    {
+        var token = Token(DateTimeOffset.UtcNow.AddHours(1));
+        var parts = token.Split('.');
+        var validation = CredentialParser.Validate($"{parts[0]}.{parts[1]}.short");
+        False(validation.IsValid);
+        Contains("签名段", validation.Detail);
     }
 
     private static void SessionJsonRequiresEmail()
@@ -123,6 +168,30 @@ internal static class Program
         Contains("JSON", validation.Detail);
     }
 
+    private static void RandomInputNeverEscapesValidation()
+    {
+        for (var sample = 0; sample < 500; sample++)
+        {
+            var length = RandomNumberGenerator.GetInt32(1, 400);
+            var characters = new char[length];
+            for (var index = 0; index < length; index++)
+            {
+                characters[index] = (char)RandomNumberGenerator.GetInt32(0, 128);
+            }
+
+            _ = CredentialParser.Validate(new string(characters));
+        }
+    }
+
+    private static void OutOfRangeJwtTimestampIsRejected()
+    {
+        var header = Base64Url(JsonSerializer.SerializeToUtf8Bytes(new { alg = "RS256" }));
+        var payload = Base64Url(JsonSerializer.SerializeToUtf8Bytes(new { sub = "fixture", exp = long.MaxValue }));
+        var validation = CredentialParser.Validate($"{header}.{payload}.{new string('s', 64)}");
+        False(validation.IsValid);
+        Contains("到期时间", validation.Detail);
+    }
+
     private static void ArrayJsonPathsWork()
     {
         using var json = JsonDocument.Parse("{\"lines\":{\"data\":[{\"description\":\"ChatGPT Plus\"}]}}");
@@ -165,6 +234,12 @@ internal static class Program
         Equal(PlanVisual.Pro5X, result.Subscription.Visual);
     }
 
+    private static void UnknownProductIsNotPro()
+    {
+        var result = Normalize(accountsJson: Accounts("professional_trial", "professional_trial", "chatgpt_web"));
+        Equal(PlanVisual.Other, result.Subscription.Visual);
+    }
+
     private static void IosOriginMapsToAppStore()
     {
         var result = Normalize(accountsJson: Accounts("plus", "chatgptplusplan", "chatgpt_ios"));
@@ -198,6 +273,24 @@ internal static class Program
         True(result.Warnings.Any(warning => warning.Contains("前 6 位", StringComparison.Ordinal)));
     }
 
+    private static void RootDefaultPaymentMethodIsSelected()
+    {
+        var result = Normalize(
+            accountsJson: Accounts("plus", "chatgptplusplan", "chatgpt_web"),
+            paymentJson: """{"default_payment_method_id":"pm_second","payment_methods":[{"id":"pm_first","card":{"brand":"visa","last4":"1111"}},{"id":"pm_second","card":{"brand":"mastercard","last4":"2222"}}]}""");
+        Equal("Mastercard", result.Payment.Brand);
+        Equal("2222", result.Payment.Last4);
+    }
+
+    private static void WrappedPaymentMethodIsParsed()
+    {
+        var result = Normalize(
+            accountsJson: Accounts("plus", "chatgptplusplan", "chatgpt_web"),
+            paymentJson: """{"payment_methods":[{"payment_method":{"id":"pm_wrapped","type":"card","card":{"brand":"visa","last4":"9000"}}}]}""");
+        Equal("VISA", result.Payment.Brand);
+        Equal("9000", result.Payment.Last4);
+    }
+
     private static void InvoiceMinorUnitsAreNormalized()
     {
         var result = Normalize(
@@ -206,6 +299,24 @@ internal static class Program
         Equal(19.99m, result.BillingRecords.Single().Amount);
         Equal("USD", result.BillingRecords.Single().Currency);
         Equal("ChatGPT Plus", result.BillingRecords.Single().Product);
+    }
+
+    private static void ZeroDecimalCurrencyIsNormalized()
+    {
+        var result = Normalize(
+            accountsJson: Accounts("plus", "chatgptplusplan", "chatgpt_web"),
+            invoicesJson: """{"data":[{"id":"in_jpy","amount_paid":2000,"currency":"jpy","status":"paid"}]}""");
+        Equal(2000m, result.BillingRecords.Single().Amount);
+        Equal("JPY 2000", CurrencyRules.Format(result.BillingRecords.Single().Amount!.Value, "JPY"));
+    }
+
+    private static void ThreeDecimalCurrencyIsNormalized()
+    {
+        var result = Normalize(
+            accountsJson: Accounts("plus", "chatgptplusplan", "chatgpt_web"),
+            invoicesJson: """{"data":[{"id":"in_kwd","amount_paid":1234,"currency":"kwd","status":"paid"}]}""");
+        Equal(1.234m, result.BillingRecords.Single().Amount);
+        Equal("KWD 1.234", CurrencyRules.Format(result.BillingRecords.Single().Amount!.Value, "KWD"));
     }
 
     private static void UsageWindowsAreParsed()
@@ -292,6 +403,107 @@ internal static class Program
         Equal(3, requestCount);
     }
 
+    private static void ErrorEnvelopeIsNotSuccess()
+    {
+        using var handler = new FixtureHttpHandler(request => request.RequestUri!.AbsolutePath switch
+        {
+            "/backend-api/accounts/check/v4-2023-04-27" => JsonResponse(Accounts("plus", "chatgptplusplan", "chatgpt_web")),
+            "/backend-api/subscriptions" => JsonResponse("""{"detail":"account id is required"}"""),
+            "/backend-api/wham/usage" => JsonResponse("""{"plan_type":"plus","rate_limit":{"allowed":true}}"""),
+            "/backend-api/invoices" => JsonResponse("""{"data":[]}"""),
+            "/backend-api/payments/payment_methods" => JsonResponse("""{"payment_methods":[]}"""),
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+        });
+        using var client = new HttpClient(handler, disposeHandler: false);
+        using var service = new ChatGptQueryService(client);
+        var result = service.QueryAsync(CompleteSessionJson()).GetAwaiter().GetResult();
+        Equal(ProbeState.Unavailable, result.Probes.Single(probe => probe.Name == "当前订阅").State);
+        True(result.Warnings.Count > 0);
+    }
+
+    private static void DeactivatedAccountIsNotSuccess()
+    {
+        using var handler = new FixtureHttpHandler(request => request.RequestUri!.AbsolutePath switch
+        {
+            "/backend-api/accounts/check/v4-2023-04-27" => JsonResponse("""{"accounts":{"acct_1234567890":{"account":{"account_id":"acct_1234567890","is_deactivated":true}}}}"""),
+            "/backend-api/subscriptions" => JsonResponse("""{"id":"sub_fixture","plan_type":"plus"}"""),
+            "/backend-api/wham/usage" => JsonResponse("""{"plan_type":"plus","rate_limit":{"allowed":true}}"""),
+            "/backend-api/invoices" => JsonResponse("""{"data":[]}"""),
+            "/backend-api/payments/payment_methods" => JsonResponse("""{"payment_methods":[]}"""),
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+        });
+        using var client = new HttpClient(handler, disposeHandler: false);
+        using var service = new ChatGptQueryService(client);
+        var result = service.QueryAsync(CompleteSessionJson()).GetAwaiter().GetResult();
+        Equal(ProbeState.Unavailable, result.Probes.Single(probe => probe.Name == "账户状态").State);
+        Equal("Plus", result.Subscription.PlanName);
+    }
+
+    private static void OversizedOptionalResponseStaysPartial()
+    {
+        using var handler = new FixtureHttpHandler(request => request.RequestUri!.AbsolutePath switch
+        {
+            "/backend-api/accounts/check/v4-2023-04-27" => JsonResponse(Accounts("plus", "chatgptplusplan", "chatgpt_web")),
+            "/backend-api/subscriptions" => JsonResponse("""{"id":"sub_fixture","plan_type":"plus"}"""),
+            "/backend-api/wham/usage" => JsonResponse("""{"plan_type":"plus","rate_limit":{"allowed":true}}"""),
+            "/backend-api/invoices" => JsonResponse("""{"data":[]}"""),
+            "/backend-api/payments/payment_methods" => JsonResponse($"{{\"padding\":\"{new string('x', (2 * 1024 * 1024) + 1)}\"}}"),
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+        });
+        using var client = new HttpClient(handler, disposeHandler: false);
+        using var service = new ChatGptQueryService(client);
+        var result = service.QueryAsync(CompleteSessionJson()).GetAwaiter().GetResult();
+        var paymentProbe = result.Probes.Single(probe => probe.Name == "支付方式");
+        Equal(ProbeState.Failed, paymentProbe.State);
+        Contains("安全上限", paymentProbe.Message);
+        Equal("Plus", result.Subscription.PlanName);
+    }
+
+    private static void CallerCancellationIsPreserved()
+    {
+        using var handler = new FixtureHttpHandler(_ => JsonResponse("{}"));
+        using var client = new HttpClient(handler, disposeHandler: false);
+        using var service = new ChatGptQueryService(client);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        try
+        {
+            _ = service.QueryAsync(CompleteSessionJson(), cancellationToken: cancellation.Token)
+                .GetAwaiter()
+                .GetResult();
+            throw new InvalidOperationException("Expected cancellation.");
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected: cancellation must not be converted into a credential or endpoint error.
+        }
+    }
+
+    private static void LayoutFitsNormalWorkArea()
+    {
+        var plan = LayoutPlanner.Calculate(1920, 1040);
+        Equal(1160d, plan.Width);
+        Equal(720d, plan.Height);
+        Equal(1d, plan.EstimatedScale);
+    }
+
+    private static void LayoutScalesForHighDpi()
+    {
+        var plan = LayoutPlanner.Calculate(1280, 680);
+        Equal(1160d, plan.Width);
+        Equal(632d, plan.Height);
+        True(plan.EstimatedScale < 1d);
+        True(plan.Height < 680d);
+    }
+
+    private static void InvalidWorkAreaGetsDefaults()
+    {
+        var plan = LayoutPlanner.Calculate(double.NaN, -1);
+        Equal(1160d, plan.Width);
+        Equal(720d, plan.Height);
+        Equal(1d, plan.EstimatedScale);
+    }
+
     private static InspectionResult Normalize(
         string? accountsJson = null,
         string? subscriptionJson = null,
@@ -313,7 +525,7 @@ internal static class Program
             usage,
             invoices,
             payment,
-            DateTimeOffset.Parse("2030-01-01T00:00:00Z"));
+            DateTimeOffset.Parse("2030-01-01T00:00:00Z", CultureInfo.InvariantCulture));
     }
 
     private static FetchOutcome Outcome(string name, string? json, ProbeState state) =>
@@ -347,10 +559,10 @@ internal static class Program
         account = new { id = "acct_1234567890" },
     });
 
-    private static string Token(DateTimeOffset expires)
+    private static string Token(DateTimeOffset expires, DateTimeOffset? notBefore = null)
     {
         var header = Base64Url(JsonSerializer.SerializeToUtf8Bytes(new { alg = "RS256", typ = "JWT" }));
-        var payload = Base64Url(JsonSerializer.SerializeToUtf8Bytes(new Dictionary<string, object>
+        var claims = new Dictionary<string, object>
         {
             ["sub"] = "user-fixture",
             ["exp"] = expires.ToUnixTimeSeconds(),
@@ -359,8 +571,14 @@ internal static class Program
             {
                 ["chatgpt_account_id"] = "acct_1234567890",
             },
-        }));
-        return $"{header}.{payload}.fixture-signature";
+        };
+        if (notBefore is { } value)
+        {
+            claims["nbf"] = value.ToUnixTimeSeconds();
+        }
+
+        var payload = Base64Url(JsonSerializer.SerializeToUtf8Bytes(claims));
+        return $"{header}.{payload}.{new string('s', 64)}";
     }
 
     private static string Base64Url(byte[] data) =>
@@ -371,6 +589,10 @@ internal static class Program
         Content = new StringContent(json, Encoding.UTF8, "application/json"),
     };
 
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "The test harness must record every failed test and continue through the remaining independent cases.")]
     private static void Run(string name, Action action)
     {
         try
@@ -420,6 +642,8 @@ internal static class Program
     private sealed class FixtureHttpHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(responder(request));
+            cancellationToken.IsCancellationRequested
+                ? Task.FromCanceled<HttpResponseMessage>(cancellationToken)
+                : Task.FromResult(responder(request));
     }
 }

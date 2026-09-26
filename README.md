@@ -27,7 +27,7 @@
 ## 安装
 
 1. 打开 [GitHub Releases](https://github.com/PascalePaF/chatgpt-subscription-lens/releases/latest)。
-2. 下载 `SubscriptionLens-v1.0.1-windows-x64-setup.exe`（V1.0.1 发布后）以及同名 `.sha256`。
+2. 下载 `SubscriptionLens-v1.0.1-windows-x64-setup.exe` 以及同名 `.sha256`。
 3. 可选：用 PowerShell 核对哈希：
 
    ```powershell
@@ -40,7 +40,7 @@
    %LOCALAPPDATA%\Programs\SubscriptionLens
    ```
 
-这是按当前 Windows 用户安装的桌面软件，带开始菜单快捷方式与标准卸载程序；不是绿色免安装包。应用为 x64 自包含版本，不要求用户另装 .NET。
+这是按当前 Windows 用户安装的桌面软件，带开始菜单快捷方式与标准卸载程序；不是绿色免安装包。应用为 x64 自包含版本，不要求用户另装 .NET。运行时组件与程序文件全部由安装器放入上述安装目录，不使用单文件临时解压模式。
 
 ## 获取凭证
 
@@ -55,7 +55,7 @@ Session、Access Token 与 `auth.json` 都等同密码。不要发到 Issue、�
 
 ## 界面原则
 
-- 固定 1160 × 720 原生窗口，整个页面不滚动；
+- 以 1160 × 680 为设计画布，按 Windows 工作区和 DPI 等比缩小，整个页面不滚动；
 - 输入框固定约三行高，再长的 JSON 也不会撑满窗口；
 - 套餐配色：Pro 20X 黑金、Pro 5X 蓝色、Plus 绿色、Free 灰色；
 - 左侧显示套餐与有效期，右侧为黑色支付/商店卡片；
@@ -74,7 +74,7 @@ dotnet run --project .\tests\SubscriptionLens.Tests\SubscriptionLens.Tests.cspro
 
 构建输出：
 
-- 自包含程序：`artifacts\publish\SubscriptionLens.exe`
+- 自包含程序目录：`artifacts\publish\`（主程序为 `SubscriptionLens.exe`）
 - 安装程序：`release\SubscriptionLens-v1.0.1-windows-x64-setup.exe`
 - 校验文件：同名 `.sha256`
 
@@ -93,4 +93,4 @@ dotnet run --project .\tests\SubscriptionLens.Tests\SubscriptionLens.Tests.cspro
 
 ## 开源许可
 
-MIT。详见 [LICENSE](LICENSE)。项目与 OpenAI、Apple、Google、Visa、Mastercard 无隶属或背书关系；产品名与商标归各自权利人所有。
+MIT。详见 [LICENSE](LICENSE) 与 [第三方声明](THIRD_PARTY_NOTICES.md)。项目与 OpenAI、Apple、Google、Visa、Mastercard 无隶属或背书关系；产品名与商标归各自权利人所有。

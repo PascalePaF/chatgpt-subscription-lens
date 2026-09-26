@@ -3,10 +3,11 @@ using SubscriptionLens.Core;
 
 namespace SubscriptionLens.App;
 
-public partial class App : Application
+public partial class SubscriptionLensApplication : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        ArgumentNullException.ThrowIfNull(e);
         if (e.Args.Contains("--self-test", StringComparer.OrdinalIgnoreCase))
         {
             var validation = CredentialParser.Validate("not-a-complete-session");

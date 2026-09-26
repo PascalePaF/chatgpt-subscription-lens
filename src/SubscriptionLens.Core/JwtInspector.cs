@@ -26,6 +26,12 @@ internal static class JwtInspector
             throw new LensException("Access Token 不是完整的三段式 JWT。");
         }
 
+        if (parts[2].Length < 32 || parts[2].Any(character =>
+                !char.IsAsciiLetterOrDigit(character) && character is not '-' and not '_'))
+        {
+            throw new LensException("Access Token 的签名段不完整或包含非法字符。");
+        }
+
         using var header = DecodePart(parts[0], "JWT 头部");
         using var payload = DecodePart(parts[1], "JWT 载荷");
 
@@ -47,19 +53,25 @@ internal static class JwtInspector
             throw new LensException("Access Token 缺少 exp 到期字段，无法确认完整性。");
         }
 
-        DateTimeOffset expiresAt;
-        try
-        {
-            expiresAt = DateTimeOffset.FromUnixTimeSeconds(expiresUnix.Value);
-        }
-        catch (ArgumentOutOfRangeException ex)
-        {
-            throw new LensException("Access Token 的到期时间无效。", ex);
-        }
+        var expiresAt = ParseUnixTime(expiresUnix.Value, "到期时间");
 
         if (expiresAt <= now.AddMinutes(-2))
         {
             throw new LensException($"Access Token 已于 {expiresAt.LocalDateTime:yyyy-MM-dd HH:mm:ss} 过期。");
+        }
+
+        var notBeforeUnix = JsonAccess.Int64(payload.RootElement, "nbf");
+        if (notBeforeUnix is { } notBefore &&
+            ParseUnixTime(notBefore, "生效时间") > now.AddMinutes(2))
+        {
+            throw new LensException("Access Token 尚未生效，请检查本机时间或重新登录。");
+        }
+
+        var issuedAtUnix = JsonAccess.Int64(payload.RootElement, "iat");
+        if (issuedAtUnix is { } issuedAt &&
+            ParseUnixTime(issuedAt, "签发时间") > now.AddMinutes(5))
+        {
+            throw new LensException("Access Token 的签发时间晚于本机时间，请检查系统时钟。");
         }
 
         var email = FirstNonEmpty(
@@ -102,6 +114,18 @@ internal static class JwtInspector
         catch (Exception ex) when (ex is FormatException or JsonException)
         {
             throw new LensException($"{fieldName}无法解析，凭证可能没有复制完整。", ex);
+        }
+    }
+
+    private static DateTimeOffset ParseUnixTime(long value, string fieldName)
+    {
+        try
+        {
+            return DateTimeOffset.FromUnixTimeSeconds(value);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            throw new LensException($"Access Token 的{fieldName}无效。", ex);
         }
     }
 
